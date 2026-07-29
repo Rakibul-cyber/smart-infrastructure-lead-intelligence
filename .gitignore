@@ -1,0 +1,41 @@
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment variables and secrets
+.env
+
+# macOS files
+.DS_Store
+
+# VS Code workspace settings
+.vscode/
+
+# Generated and collected data
+data/raw/*
+data/processed/*
+data/output/*
+
+# Keep placeholder files
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/output/.gitkeep
+
+# Generated reports and screenshots
+reports/*
+screenshots/*
+
+# Keep placeholder files
+!reports/.gitkeep
+!screenshots/.gitkeep
+
+# Testing and coverage output
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Log files
+*.log
