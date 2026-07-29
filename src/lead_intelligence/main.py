@@ -1,139 +1,101 @@
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass
 
 import requests
-from bs4 import BeautifulSoup
+
+from .static_scraper import scrape_page
 
 
-@dataclass
-class PageInformation:
-    """Structured information extracted from one webpage."""
-
-    url: str
-    title: str
-    main_heading: str
-    links: list[str]
-
-
-def download_page(url: str) -> str:
+def print_list(
+    heading: str,
+    values: list[str],
+    limit: int | None = None,
+) -> None:
     """
-    Download raw HTML from a public webpage.
-
-    Args:
-        url: The complete webpage URL.
-
-    Returns:
-        The webpage HTML.
-
-    Raises:
-        requests.RequestException:
-            If the webpage cannot be downloaded successfully.
+    Print a titled list with optional result limiting.
     """
 
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 "
-            "(compatible; SmartInfrastructureLeadIntelligence/0.1)"
-        )
-    }
+    print(f"\n{heading}: {len(values)}")
 
-    response = requests.get(
-        url,
-        headers=headers,
-        timeout=20,
+    displayed_values = (
+        values[:limit]
+        if limit is not None
+        else values
     )
 
-    response.raise_for_status()
+    if not displayed_values:
+        print("- None found")
+        return
 
-    return response.text
+    for position, value in enumerate(
+        displayed_values,
+        start=1,
+    ):
+        print(f"{position}. {value}")
 
-
-def extract_page_information(
-    url: str,
-    html: str,
-) -> PageInformation:
-    """
-    Extract basic structured information from HTML.
-
-    Args:
-        url: The original webpage URL.
-        html: Raw webpage HTML.
-
-    Returns:
-        A PageInformation object containing the extracted data.
-    """
-
-    soup = BeautifulSoup(html, "lxml")
-
-    title = ""
-
-    if soup.title:
-        title = soup.title.get_text(
-            " ",
-            strip=True,
-        )
-
-    main_heading = ""
-
-    heading = soup.find("h1")
-
-    if heading:
-        main_heading = heading.get_text(
-            " ",
-            strip=True,
-        )
-
-    links: list[str] = []
-
-    for anchor in soup.find_all("a", href=True):
-        href = anchor.get("href")
-
-        if isinstance(href, str):
-            links.append(href)
-
-    return PageInformation(
-        url=url,
-        title=title,
-        main_heading=main_heading,
-        links=links,
-    )
+    if (
+        limit is not None
+        and len(values) > limit
+    ):
+        remaining = len(values) - limit
+        print(f"... and {remaining} more")
 
 
 def main() -> None:
-    """Run the first static scraping demonstration."""
+    """Run the static scraper demonstration."""
 
     target_url = "https://example.com"
 
-    print("=" * 60)
+    print("=" * 70)
     print("SMART INFRASTRUCTURE LEAD INTELLIGENCE")
-    print("=" * 60)
+    print("=" * 70)
     print(f"Target URL: {target_url}")
-    print("Downloading webpage...")
+    print("Downloading and analysing webpage...")
 
     try:
-        html = download_page(target_url)
-
-        page_information = extract_page_information(
-            url=target_url,
-            html=html,
-        )
+        result = scrape_page(target_url)
 
     except requests.RequestException as error:
-        print(f"Download failed: {error}")
+        print(f"\nScraping failed: {error}")
         sys.exit(1)
 
     print("\nScraping completed successfully.")
-    print(f"Page title: {page_information.title}")
-    print(f"Main heading: {page_information.main_heading}")
-    print(f"Links found: {len(page_information.links)}")
 
-    for position, link in enumerate(
-        page_information.links,
-        start=1,
-    ):
-        print(f"{position}. {link}")
+    print(f"\nPage title: {result.title}")
+    print(f"Main heading: {result.main_heading}")
+    print(
+        "Visible text preview: "
+        f"{result.visible_text[:300]}"
+    )
+
+    print_list(
+        heading="Email addresses",
+        values=result.emails,
+    )
+
+    print_list(
+        heading="Telephone numbers",
+        values=result.phone_numbers,
+    )
+
+    print_list(
+        heading="Absolute links",
+        values=result.absolute_links,
+        limit=10,
+    )
+
+    print_list(
+        heading="Internal links",
+        values=result.internal_links,
+        limit=10,
+    )
+
+    print_list(
+        heading="Contact-related links",
+        values=result.contact_links,
+        limit=10,
+    )
 
 
 if __name__ == "__main__":

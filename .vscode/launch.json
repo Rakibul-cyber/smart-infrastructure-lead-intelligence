@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Lead Intelligence Pipeline",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.lead_intelligence.main",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

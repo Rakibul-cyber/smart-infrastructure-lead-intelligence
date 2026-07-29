@@ -12,7 +12,8 @@ __pycache__/
 .DS_Store
 
 # VS Code workspace settings
-.vscode/
+.vscode/*
+!.vscode/launch.json
 
 # Generated and collected data
 data/raw/*
