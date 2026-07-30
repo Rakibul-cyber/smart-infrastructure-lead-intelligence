@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import sys
-
 import requests
 
+from .crawler import crawl_website
 from .static_scraper import scrape_page
 
 
@@ -43,7 +42,7 @@ def print_list(
 
 
 def main() -> None:
-    """Run the static scraper demonstration."""
+    """Run static scraper and crawler demonstrations."""
 
     target_url = "https://example.com"
 
@@ -58,43 +57,86 @@ def main() -> None:
 
     except requests.RequestException as error:
         print(f"\nScraping failed: {error}")
-        sys.exit(1)
+    else:
+        print("\nScraping completed successfully.")
 
-    print("\nScraping completed successfully.")
+        print(f"\nPage title: {result.title}")
+        print(f"Main heading: {result.main_heading}")
+        print(
+            "Visible text preview: "
+            f"{result.visible_text[:300]}"
+        )
 
-    print(f"\nPage title: {result.title}")
-    print(f"Main heading: {result.main_heading}")
+        print_list(
+            heading="Email addresses",
+            values=result.emails,
+        )
+
+        print_list(
+            heading="Telephone numbers",
+            values=result.phone_numbers,
+        )
+
+        print_list(
+            heading="Absolute links",
+            values=result.absolute_links,
+            limit=10,
+        )
+
+        print_list(
+            heading="Internal links",
+            values=result.internal_links,
+            limit=10,
+        )
+
+        print_list(
+            heading="Contact-related links",
+            values=result.contact_links,
+            limit=10,
+        )
+
+    print("\n" + "=" * 70)
+    print("CONTROLLED WEBSITE CRAWL")
+    print("=" * 70)
+
+    try:
+        crawled_website = crawl_website(
+            "https://example.com",
+            max_pages=2,
+        )
+
+    except requests.RequestException as error:
+        print(f"\nCrawling failed: {error}")
+        return
+
     print(
-        "Visible text preview: "
-        f"{result.visible_text[:300]}"
+        "\nSuccessfully visited pages: "
+        f"{len(crawled_website.visited_urls)}"
     )
 
     print_list(
-        heading="Email addresses",
-        values=result.emails,
+        heading="Visited URLs",
+        values=crawled_website.visited_urls,
+    )
+
+    print(
+        "\nFailed pages: "
+        f"{len(crawled_website.failed_pages)}"
     )
 
     print_list(
-        heading="Telephone numbers",
-        values=result.phone_numbers,
+        heading="Combined emails",
+        values=crawled_website.emails,
     )
 
     print_list(
-        heading="Absolute links",
-        values=result.absolute_links,
-        limit=10,
+        heading="Combined phone numbers",
+        values=crawled_website.phone_numbers,
     )
 
     print_list(
-        heading="Internal links",
-        values=result.internal_links,
-        limit=10,
-    )
-
-    print_list(
-        heading="Contact-related links",
-        values=result.contact_links,
-        limit=10,
+        heading="Combined contact links",
+        values=crawled_website.contact_links,
     )
 
 
