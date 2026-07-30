@@ -3,6 +3,7 @@ from __future__ import annotations
 import requests
 
 from .crawler import crawl_website
+from .signal_detector import detect_signals_from_pages
 from .static_scraper import scrape_page
 
 
@@ -39,6 +40,15 @@ def print_list(
     ):
         remaining = len(values) - limit
         print(f"... and {remaining} more")
+
+
+def format_yes_no(value: bool) -> str:
+    """Format a boolean value for console output."""
+
+    if value:
+        return "Yes"
+
+    return "No"
 
 
 def main() -> None:
@@ -138,6 +148,54 @@ def main() -> None:
         heading="Combined contact links",
         values=crawled_website.contact_links,
     )
+
+    signals = detect_signals_from_pages(
+        crawled_website.page_results
+    )
+
+    print("\n" + "=" * 70)
+    print("BUSINESS SIGNALS")
+    print("=" * 70)
+    print(
+        "Street lighting: "
+        f"{format_yes_no(signals.street_lighting)}"
+    )
+    print(f"Smart city: {format_yes_no(signals.smart_city)}")
+    print(
+        "Energy efficiency: "
+        f"{format_yes_no(signals.energy_efficiency)}"
+    )
+    print(
+        "Climate action: "
+        f"{format_yes_no(signals.climate_action)}"
+    )
+    print(
+        "Infrastructure modernisation: "
+        f"{format_yes_no(signals.infrastructure_modernisation)}"
+    )
+    print(f"Procurement: {format_yes_no(signals.procurement)}")
+    print(
+        "Municipal utility: "
+        f"{format_yes_no(signals.municipal_utility)}"
+    )
+    print(
+        "Matched keywords: "
+        f"{len(signals.matched_keywords)}"
+    )
+
+    print("\nEvidence:")
+
+    if not signals.evidence:
+        print("- None found")
+        return
+
+    for evidence_item in signals.evidence[:5]:
+        print(
+            f"[{evidence_item.category}] "
+            f"{evidence_item.keyword} — "
+            f"{evidence_item.excerpt} — "
+            f"{evidence_item.source_url}"
+        )
 
 
 if __name__ == "__main__":

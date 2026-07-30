@@ -1,7 +1,8 @@
 # Smart Infrastructure Lead Intelligence
 
-A Python-based portfolio project for discovering, extracting, cleaning,
-scoring, and exporting publicly available B2B and public-sector lead data.
+A Python-based portfolio project for discovering, extracting, and analysing
+publicly available B2B and public-sector lead data. Later checkpoints may add
+cleaning, scoring, and export workflows.
 
 ## Overview
 
@@ -14,6 +15,35 @@ Manual research is slow, inconsistent, and difficult to scale.
 This project demonstrates how Python can support that workflow by collecting
 public information from websites and transforming it into structured,
 reviewable lead data.
+
+## Current Features
+
+- Static HTML webpage scraping with Requests and Beautiful Soup.
+- Extraction of public email addresses, telephone numbers, internal links, and
+  contact-related links.
+- Controlled breadth-first crawling across a small number of internal pages.
+- Business signal detection for smart infrastructure sales research.
+- Transparent rule-based keyword matching with English and German terms.
+- Offline Pytest coverage using deterministic HTML fixtures.
+
+Business signal detection is intentionally simple and inspectable at this
+stage. It uses explicit keyword categories and evidence excerpts rather than
+machine learning or AI classification.
+
+## Project Status
+
+Completed checkpoints:
+
+- Static scraper
+- Controlled multi-page crawler
+- Rule-based business signal detection
+
+Not implemented yet:
+
+- Lead scoring
+- Excel or data export
+- Dynamic website automation
+- External APIs or databases
 
 ## Planned Workflow
 
@@ -29,15 +59,20 @@ reviewable lead data.
 
 ## Technologies
 
+Current:
+
 - Python
 - Requests
 - Beautiful Soup
 - lxml
-- Playwright
-- Pandas
-- OpenPyXL
 - Pytest
 - Git and GitHub
+
+Planned for later checkpoints:
+
+- Pandas
+- OpenPyXL
+- Playwright
 
 ## Project Structure
 
