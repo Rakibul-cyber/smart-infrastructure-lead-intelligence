@@ -231,6 +231,10 @@ def main() -> None:
         "\nRun `python -m tests.manual_export_demo` to generate the "
         "fictional Excel demonstration."
     )
+    print(
+        "Run `python -m tests.manual_dashboard_demo` to view the "
+        "fictional management dashboard."
+    )
 
 
 if __name__ == "__main__":

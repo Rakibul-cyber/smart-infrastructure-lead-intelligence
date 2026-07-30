@@ -6,6 +6,13 @@ from .crawler import (
     crawl_website,
     normalise_crawl_url,
 )
+from .dashboard import (
+    DashboardSummary,
+    SignalCount,
+    build_dashboard_summary,
+    format_dashboard,
+    print_dashboard,
+)
 from .exporter import (
     LeadRecord,
     build_lead_record,
@@ -36,12 +43,15 @@ from .static_scraper import (
 __all__ = [
     "CrawlFailure",
     "CrawledWebsite",
+    "DashboardSummary",
     "DetectedSignals",
     "LeadRecord",
     "LeadScore",
     "ScrapedPage",
     "ScoreBreakdownItem",
+    "SignalCount",
     "SignalEvidence",
+    "build_dashboard_summary",
     "build_lead_record",
     "build_score_summary",
     "classify_priority",
@@ -50,9 +60,11 @@ __all__ = [
     "detect_signals_from_pages",
     "detect_signals_in_text",
     "export_leads_to_excel",
+    "format_dashboard",
     "normalise_crawl_url",
     "normalise_text",
     "parse_page",
+    "print_dashboard",
     "score_lead",
     "scrape_page",
 ]

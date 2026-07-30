@@ -27,6 +27,8 @@ reviewable lead data.
 - Transparent lead scoring based on detected signals and public contact
   information.
 - Professional Excel reporting with lead tables, evidence, and run summaries.
+- Management dashboard summary for fast review of run-level lead research
+  results.
 - Offline Pytest coverage using deterministic HTML fixtures.
 
 Business signal detection is intentionally simple and inspectable at this
@@ -79,6 +81,29 @@ data/output/lead_intelligence_report.xlsx
 Generated files in `data/output/` are ignored by Git, except for the
 placeholder `.gitkeep`.
 
+## Management Dashboard
+
+The terminal dashboard is designed for fast decision-making by founders, sales
+managers, and business-development users. It summarises a completed research
+run without generating charts or files.
+
+Included metrics:
+
+- Total, High, Medium, and Low priority leads.
+- Average, highest, and lowest lead scores.
+- Total and unique email addresses.
+- Total and unique phone numbers.
+- Contact links discovered.
+- Evidence items collected.
+- Top leads by score and priority.
+- Most common business signals across organisations.
+
+View the fictional dashboard demo with:
+
+```bash
+python -m tests.manual_dashboard_demo
+```
+
 ## Project Status
 
 Completed checkpoints:
@@ -88,6 +113,7 @@ Completed checkpoints:
 - Rule-based business signal detection
 - Transparent lead scoring
 - Professional Excel export
+- Management dashboard summary
 
 Not implemented yet:
 
