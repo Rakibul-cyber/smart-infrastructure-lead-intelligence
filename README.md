@@ -1,5 +1,7 @@
 # Smart Infrastructure Lead Intelligence
 
+[![CI](https://github.com/Rakibul-cyber/smart-infrastructure-lead-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/Rakibul-cyber/smart-infrastructure-lead-intelligence/actions/workflows/ci.yml)
+
 A Python-based portfolio project for discovering, extracting, and analysing
 publicly available B2B and public-sector lead data. Later checkpoints may add
 cleaning and dynamic website automation workflows.
@@ -40,6 +42,8 @@ reviewable lead data.
 - Structured console logging with optional UTF-8 file logging.
 - Controlled retry logic and respectful request pacing for public webpages.
 - Offline Pytest coverage using deterministic HTML fixtures.
+- Docker runtime and test-image packaging with local smoke testing.
+- GitHub Actions continuous integration for tests, demos, and Docker checks.
 
 Business signal detection is intentionally simple and inspectable at this
 stage. It uses explicit keyword categories and evidence excerpts rather than
@@ -349,6 +353,27 @@ Run the local Docker smoke test:
 scripts/docker-smoke-test.sh
 ```
 
+## Continuous Integration
+
+GitHub Actions runs on pushes to `main`, pull requests targeting `main`, and
+manual workflow dispatches. Outdated runs on the same branch are cancelled, and
+the workflow uses read-only repository permissions.
+
+CI verifies:
+
+- Python tests.
+- The local Playwright Chromium browser test.
+- Compilation validation with `compileall`.
+- CLI version, dashboard demo, and fictional Excel demo commands.
+- Fictional Excel output generation under `data/output`.
+- Docker runtime image build.
+- Docker test image build.
+- Docker Compose configuration.
+- The Docker smoke test.
+
+The CI workflow uses fictional demo data and local fixtures only. It does not
+scrape public organisations or upload logs containing scraped contact data.
+
 ## Retry And Pacing
 
 The scraper retries only controlled, retryable request failures:
@@ -464,6 +489,8 @@ Completed checkpoints:
 - Professional command-line interface
 - Batch CSV organisation analysis
 - Targeted Playwright fallback for JavaScript-rendered pages
+- Docker packaging and smoke testing
+- GitHub Actions continuous integration
 
 Not implemented yet:
 

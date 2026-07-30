@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m playwright install --with-deps chromium
+
+      - name: Run Python tests
+        run: python -m pytest -v
+
+      - name: Compile Python files
+        run: python -m compileall src tests
+
+      - name: Run CLI version command
+        run: python -m src.lead_intelligence version
+
+      - name: Run fictional dashboard demo
+        run: python -m src.lead_intelligence demo-dashboard
+
+      - name: Generate fictional Excel demo
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/output
+          OUTPUT_DIRECTORY=data/output python -m src.lead_intelligence demo-export
+          find data/output -maxdepth 1 -type f -name "*.xlsx" | grep -q .
+
+      - name: Upload fictional Excel demo
+        uses: actions/upload-artifact@v4
+        with:
+          name: fictional-excel-demo
+          path: data/output/*.xlsx
+          if-no-files-found: error
+          retention-days: 5
+
+  docker:
+    name: Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build runtime image
+        run: docker build -t lead-intelligence .
+
+      - name: Run runtime version command
+        run: docker run --rm lead-intelligence version
+
+      - name: Run fictional dashboard demo in runtime image
+        run: docker run --rm lead-intelligence demo-dashboard
+
+      - name: Build Docker test target
+        run: docker build --target test -t lead-intelligence-test .
+
+      - name: Run Docker test target
+        run: docker run --rm lead-intelligence-test
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config
+
+      - name: Run Docker smoke test
+        run: bash scripts/docker-smoke-test.sh
