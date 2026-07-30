@@ -25,6 +25,7 @@ RUN useradd --create-home --shell /bin/bash appuser \
 USER appuser
 
 FROM app-base AS test
+COPY --chown=appuser:appuser .github ./.github
 ENTRYPOINT ["python", "-m", "pytest", "-v"]
 CMD []
 
