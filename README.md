@@ -1,72 +1,185 @@
 # Smart Infrastructure Lead Intelligence
 
 [![CI](https://github.com/Rakibul-cyber/smart-infrastructure-lead-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/Rakibul-cyber/smart-infrastructure-lead-intelligence/actions/workflows/ci.yml)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-1.61.0-2EAD33?logo=playwright&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![pytest](https://img.shields.io/badge/pytest-tested-0A9EDC?logo=pytest&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-A Python-based portfolio project for discovering, extracting, and analysing
-publicly available B2B and public-sector lead data. Later checkpoints may add
-cleaning and dynamic website automation workflows.
+A production-oriented Python lead-research pipeline that discovers, analyses,
+scores, and exports publicly available smart-infrastructure opportunities.
 
 ## Overview
 
-Sales teams working with smart infrastructure products often need to identify
-municipalities, public utilities, infrastructure operators, and organisations
-that may have relevant digitalisation, energy-efficiency, or modernisation needs.
+Smart Infrastructure Lead Intelligence is a portfolio project for structured
+B2B and B2G research. It crawls organisation websites, uses Requests and
+Beautiful Soup for static pages, optionally falls back to Playwright for
+JavaScript-rendered pages, extracts public business contact information,
+detects transparent rule-based business signals, calculates a 0-100 lead
+score, exports Excel reports, and prints a management dashboard. The project
+also includes batch CSV analysis, central configuration, structured logging,
+retries, request pacing, Docker packaging, Docker Compose, GitHub Actions CI,
+and Dependabot configuration.
 
-Manual research is slow, inconsistent, and difficult to scale.
+## Why This Project Exists
 
-This project demonstrates how Python can support that workflow by collecting
-public information from websites and transforming it into structured,
-reviewable lead data.
+Sales, founder-led growth, and business-development teams often need to review
+municipalities, utilities, infrastructure operators, and public-sector
+organisations for signs of modernisation needs. Manual research is slow and
+inconsistent. This project demonstrates how a Python pipeline can turn public
+website information into reviewable lead records while keeping the scoring
+logic explicit, inspectable, and suitable for human review.
 
-## Current Features
+## Key Capabilities
 
-- Static HTML webpage scraping with Requests and Beautiful Soup.
-- Extraction of public email addresses, telephone numbers, internal links, and
-  contact-related links.
-- Controlled breadth-first crawling across a small number of internal pages.
-- Business signal detection for smart infrastructure sales research.
-- Transparent rule-based keyword matching with English and German terms.
-- Transparent lead scoring based on detected signals and public contact
-  information.
-- Professional Excel reporting with lead tables, evidence, and run summaries.
-- Management dashboard summary for fast review of run-level lead research
-  results.
-- Professional command-line interface for one-organisation, batch, and demo
-  workflows.
-- Batch CSV organisation analysis with combined Excel reporting and failure
-  CSV output.
-- Targeted Playwright rendering for JavaScript-heavy pages when explicitly
-  requested or when `auto` mode judges static HTML insufficient.
-- Central application configuration with environment-variable and optional
-  `.env` file support.
-- Structured console logging with optional UTF-8 file logging.
-- Controlled retry logic and respectful request pacing for public webpages.
-- Offline Pytest coverage using deterministic HTML fixtures.
-- Docker runtime and test-image packaging with local smoke testing.
-- GitHub Actions continuous integration for tests, demos, and Docker checks.
+- Controlled crawling of a small number of internal pages per organisation.
+- Static scraping with Requests and Beautiful Soup.
+- Optional dynamic scraping with Playwright for JavaScript-rendered pages.
+- Conservative `auto` mode that tries static scraping first and falls back only
+  when static HTML appears insufficient.
+- Extraction of public business emails, phone numbers, contact links, internal
+  links, titles, headings, and visible text.
+- Rule-based signal detection for street lighting, smart city, energy
+  efficiency, climate action, infrastructure modernisation, procurement, and
+  municipal utility signals.
+- Transparent lead scoring from 0 to 100 with Low, Medium, and High priority
+  classifications.
+- Single-organisation and batch CSV command-line workflows.
+- Excel export with lead records, evidence, and run summaries.
+- Terminal dashboard for run-level management review.
+- Structured logging, retry handling, request pacing, environment
+  configuration, Docker packaging, and CI checks.
 
-Business signal detection is intentionally simple and inspectable at this
-stage. It uses explicit keyword categories and evidence excerpts rather than
-machine learning or AI classification.
+## Architecture Overview
 
-Lead scores support prioritisation for manual research. They are transparent
-rules, not predictive AI, and do not replace human review.
+```mermaid
+flowchart TD
+    CLI[CLI] --> Config[Configuration]
+    Batch[Batch CSV input] --> CLI
+    Config --> Strategy[Scrape Strategy]
+    Strategy --> Static[Static Scraper: Requests + Beautiful Soup]
+    Strategy --> Dynamic[Dynamic Scraper: Playwright]
+    Static --> Crawler[Crawler]
+    Dynamic --> Crawler
+    Crawler --> Signals[Signal Detection]
+    Signals --> Scoring[Lead Scoring]
+    Scoring --> Export[Excel Export]
+    Scoring --> Dashboard[Management Dashboard]
+```
 
-## Command-Line Usage
+The application is organised as a CLI-first pipeline. Configuration is loaded
+once, the scrape strategy chooses static or dynamic page extraction, the
+crawler combines page-level results, and the downstream modules transform those
+results into signals, scores, Excel output, and dashboard summaries.
 
-Show available commands:
+## How The Pipeline Works
+
+1. Read one organisation from CLI arguments or many organisations from a CSV
+   input file.
+2. Crawl a controlled number of internal pages for each organisation.
+3. Use static scraping, dynamic scraping, or conservative automatic fallback.
+4. Extract public business contacts, contact links, internal links, and visible
+   page text.
+5. Detect rule-based business signals and preserve evidence excerpts.
+6. Score each lead from 0 to 100 using explicit weighted criteria.
+7. Export Excel reports and print dashboard summaries.
+8. Preserve row-level failures in batch mode without stopping the full run.
+
+## Technology Stack
+
+| Technology | Role |
+| --- | --- |
+| Python 3.12 | Application runtime and tests. |
+| Requests | Static HTTP fetching. |
+| Beautiful Soup | HTML parsing and text extraction. |
+| Playwright | Optional Chromium rendering for dynamic pages. |
+| openpyxl | Excel workbook generation. |
+| pytest | Automated test suite. |
+| Docker | Runtime and test image packaging. |
+| Docker Compose | Local CLI container orchestration. |
+| GitHub Actions | Continuous integration. |
+| Dependabot | Weekly dependency update checks. |
+
+## Project Structure
+
+Important repository files and modules:
+
+```text
+src/lead_intelligence/
+├── cli.py              # Command-line interface and command handlers.
+├── batch.py            # CSV parsing, batch orchestration, and failure reports.
+├── crawler.py          # Controlled internal-page crawler and result aggregation.
+├── static_scraper.py   # Requests-based HTML fetching and parsing.
+├── dynamic_scraper.py  # Playwright-based browser rendering.
+├── scrape_strategy.py  # static, dynamic, and auto scrape-mode selection.
+├── signal_detector.py  # Rule-based keyword signals and evidence excerpts.
+├── scorer.py           # Transparent weighted lead scoring.
+├── exporter.py         # Excel workbook creation with openpyxl.
+├── dashboard.py        # Terminal management summary formatting.
+├── config.py           # Environment and .env configuration loading.
+├── logging_config.py   # Console and optional file logging setup.
+└── demo_data.py        # Fictional demo records for safe local and CI demos.
+```
+
+Other notable files:
+
+```text
+data/input/organisations.example.csv  # Fictional CSV input example.
+tests/                                # Unit and fixture-based test suite.
+Dockerfile                            # Runtime and test image definitions.
+docker-compose.yml                    # CLI service with mounted data folders.
+.github/workflows/ci.yml              # GitHub Actions CI workflow.
+.github/dependabot.yml                # Weekly dependency update checks.
+```
+
+## Quick Start
+
+macOS/Linux:
+
+```bash
+git clone https://github.com/Rakibul-cyber/smart-infrastructure-lead-intelligence.git
+cd smart-infrastructure-lead-intelligence
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m playwright install chromium
+python -m src.lead_intelligence --help
+```
+
+Windows users can use the same Python module commands after activating a local
+virtual environment with the platform-appropriate activation script.
+
+## CLI Usage
+
+Show the available commands:
 
 ```bash
 python -m src.lead_intelligence --help
 ```
 
-Print the package version:
+Run safe fictional demo commands:
 
 ```bash
 python -m src.lead_intelligence version
+python -m src.lead_intelligence demo-dashboard
+python -m src.lead_intelligence demo-export
 ```
 
-Analyse one organisation website:
+The demo commands use fictional data and do not crawl live websites.
+
+Exit codes:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success, including help, version, and demo commands. |
+| `1` | Runtime analysis failure, no successfully analysed pages, or one or more failed batch rows. |
+| `2` | Argument, configuration, or CSV validation error. |
+
+## Single-Organisation Analysis
+
+Analyse one organisation and print results without creating an Excel file:
 
 ```bash
 python -m src.lead_intelligence analyse \
@@ -74,69 +187,31 @@ python -m src.lead_intelligence analyse \
   --name "Example City" \
   --type Municipality \
   --city "Example City" \
-  --state Hessen
+  --state Hessen \
+  --scrape-mode auto \
+  --no-export
 ```
 
-The `analyse` command crawls the supplied HTTP or HTTPS URL, detects business
-signals, scores the lead, prints a dashboard plus a concise organisation
-summary, and writes an Excel report by default. The summary prints contact
-counts only, not raw email addresses or phone numbers.
-
-Useful analysis options:
+Analyse one organisation and write an Excel report:
 
 ```bash
 python -m src.lead_intelligence analyse \
   --website https://example-city.de \
   --name "Example City" \
-  --max-pages 3 \
-  --timeout 10 \
-  --request-delay 0.5 \
-  --max-retries 2 \
-  --retry-backoff 1 \
-  --top-limit 5 \
+  --type Municipality \
+  --city "Example City" \
+  --state Hessen \
+  --scrape-mode static \
   --output data/output/example_city.xlsx
 ```
 
-Use `--no-export` to print the analysis without creating an Excel workbook.
-Without `--output`, reports are written to:
+Useful options include `--max-pages`, `--timeout`, `--request-delay`,
+`--max-retries`, `--retry-backoff`, `--top-limit`, `--headed`,
+`--wait-for-selector`, `--browser-wait`, and `--accept-cookies`.
 
-```text
-data/output/lead_report_<organisation-name>_<YYYYMMDD_HHMMSS>.xlsx
-```
+## Batch CSV Analysis
 
-Static scraping remains the default. Use dynamic rendering only for websites
-where public content is JavaScript-rendered:
-
-```bash
-python -m src.lead_intelligence analyse \
-  --website https://example-city.de \
-  --name "Example City" \
-  --scrape-mode dynamic \
-  --headed
-```
-
-Use `auto` mode to try the static scraper first and fall back to Chromium only
-when the static HTML looks too thin or clearly asks for JavaScript:
-
-```bash
-python -m src.lead_intelligence analyse \
-  --website https://example-city.de \
-  --name "Example City" \
-  --scrape-mode auto
-```
-
-For pages that need a specific rendered element before extraction:
-
-```bash
-python -m src.lead_intelligence analyse \
-  --website https://example-city.de \
-  --name "Example City" \
-  --scrape-mode dynamic \
-  --wait-for-selector "main .content" \
-  --browser-wait 0.5
-```
-
-Analyse a CSV batch and write a combined Excel report:
+Run batch analysis from the committed fictional input example:
 
 ```bash
 python -m src.lead_intelligence batch \
@@ -144,169 +219,107 @@ python -m src.lead_intelligence batch \
   --output data/output/batch_report.xlsx
 ```
 
-The batch command analyses each organisation independently and continues when
-one row fails. It prints a combined dashboard when at least one organisation
-succeeds, writes one Excel workbook for successful records unless `--no-export`
-is supplied, and writes a failure CSV unless `--no-failure-report` is supplied.
-
-Without explicit paths, batch outputs are written to:
-
-```text
-data/output/batch_lead_report_<YYYYMMDD_HHMMSS>.xlsx
-data/output/batch_failures_<YYYYMMDD_HHMMSS>.csv
-```
-
-Demo commands use fictional data, do not crawl live websites, and do not use
-real customer data:
-
-```bash
-python -m src.lead_intelligence demo-dashboard
-python -m src.lead_intelligence demo-export
-```
-
-Run the local fictional dynamic-rendering demo with:
-
-```bash
-python -m tests.manual_dynamic_demo
-```
-
-Exit codes:
-
-| Code | Meaning |
-| --- | --- |
-| `0` | Success, including help/version/demo commands. |
-| `1` | Analysis ran but failed meaningfully: a one-site runtime/network/no-pages failure, or one or more failed rows in a batch. |
-| `2` | Argument, configuration, or CSV validation error. |
-
-## Batch CSV Analysis
-
-Batch input files are UTF-8 CSV files with flexible, case-insensitive column
-matching. Spaces and hyphens in headers are treated as underscores.
-
-Required columns:
+Required CSV fields:
 
 - `organisation_name`
 - `website`
 
-Optional columns:
+Optional CSV fields:
 
-- `organisation_type`, defaulting to `Unknown`
-- `city`, defaulting to blank
-- `state`, defaulting to blank
+- `organisation_type`
+- `city`
+- `state`
 
-Example CSV content:
+CSV headers are matched case-insensitively, and spaces or hyphens are treated
+as underscores. Batch mode analyses each organisation independently. If one row
+fails, later rows still run, successful records can still be exported, and a
+failure CSV is written unless `--no-failure-report` is supplied.
 
-```csv
-organisation_name,organisation_type,city,state,website
-Example City Infrastructure Office,Municipality,Example City,Example State,https://example-city.example
-Sample Stadtwerke Services,Public Utility,Sampletown,Fictional Region,https://sample-stadtwerke.example
-Fictional Infrastructure Authority,Infrastructure Authority,Demoburg,Example State,https://infrastructure-authority.example
-```
+The sample CSV contains fictional organisations and reserved example domains.
+It is primarily a schema example; running batch analysis against it may still
+attempt normal website requests.
 
-The committed sample file at `data/input/organisations.example.csv` contains
-fictional data only and uses reserved example domains. Running it may still
-attempt normal website requests, so it is primarily a schema example.
+## Static, Dynamic, And Automatic Scraping Modes
 
-Failure reports contain:
+| Mode | Behaviour |
+| --- | --- |
+| `static` | Uses Requests and Beautiful Soup only. This is the fastest mode and the default. |
+| `dynamic` | Uses Playwright Chromium rendering for JavaScript-rendered public pages. |
+| `auto` | Tries static scraping first, then falls back to dynamic scraping only when visible static content appears insufficient. |
 
-- Row Number
-- Organisation Name
-- Website
-- Error
+Dynamic mode supports optional headless/headed execution, a browser timeout, a
+post-load wait, a CSS selector wait, and conservative cookie-button handling.
 
-The failure CSV includes headers even when no rows fail. If every organisation
-fails, the command still writes the failure report unless disabled, skips the
-empty Excel workbook, and returns exit code `1`.
+The project does not use Playwright to bypass blocked access, CAPTCHA,
+authentication, robots restrictions, anti-bot controls, or access-control
+systems. It does not use stealth plugins, proxies, or user-agent rotation.
+
+## Excel Report Structure
+
+Excel reports are generated with `openpyxl` and contain four sheets:
+
+| Sheet | Contents |
+| --- | --- |
+| All Leads | One row per analysed organisation with contacts, signals, score, priority, and summary fields. |
+| High Priority | A filtered lead table containing only High-priority leads, with headers even when empty. |
+| Evidence | Signal evidence with organisation, website, category, keyword, excerpt, and source URL. |
+| Run Summary | Aggregate counts, average score, and export metadata for the run. |
+
+Generated `.xlsx` files in `data/output/` are ignored by Git, except for the
+placeholder `.gitkeep`.
+
+## Dashboard Summary
+
+The terminal dashboard summarises a completed run for quick management review.
+It reports:
+
+- Lead counts by priority.
+- Email and phone counts, including unique counts.
+- Contact-link totals.
+- Evidence item totals.
+- Average, highest, and lowest scores.
+- Top leads by score and priority.
+- Most common business signals across analysed organisations.
 
 ## Configuration
 
-Configuration uses the Python standard library and can be supplied through
-environment variables or an optional `.env` file.
-
-Create a local environment file with:
+Configuration can come from explicit environment variables or an optional
+`.env` file:
 
 ```bash
 cp .env.example .env
 ```
 
-Supported variables:
+Configuration precedence:
+
+1. Environment variables
+2. Values from `.env`
+3. Application defaults
+
+Core configuration:
 
 | Variable | Default | Description |
 | --- | --- | --- |
 | `REQUEST_TIMEOUT` | `20` | HTTP request timeout in seconds. |
 | `REQUEST_DELAY_SECONDS` | `1` | Delay between different page URL requests during crawling. |
-| `MAX_PAGES_PER_SITE` | `5` | Maximum successful pages to crawl per site. |
-| `MAX_RETRIES` | `2` | Number of retry attempts for retryable request failures. |
-| `RETRY_BACKOFF_SECONDS` | `1` | Base exponential backoff delay for retries to the same URL. |
+| `MAX_PAGES_PER_SITE` | `5` | Maximum successful pages to crawl per organisation. |
 | `USER_AGENT` | `SmartInfrastructureLeadIntelligence/0.1` | HTTP User-Agent string. |
-| `SCRAPE_MODE` | `static` | Scraping mode: `static`, `dynamic`, or `auto`. |
-| `BROWSER_HEADLESS` | `true` | Run Chromium headlessly when browser rendering is used. |
+| `MAX_RETRIES` | `2` | Retry attempts for retryable request failures. |
+| `RETRY_BACKOFF_SECONDS` | `1` | Base exponential retry backoff in seconds. |
+| `OUTPUT_DIRECTORY` | `data/output` | Default generated-output directory. |
+| `LOG_LEVEL` | `INFO` | Logging level. |
+| `LOG_FILE` | blank | Optional UTF-8 log file path. |
+| `SCRAPE_MODE` | `static` | `static`, `dynamic`, or `auto`. |
+| `BROWSER_HEADLESS` | `true` | Run Chromium headlessly in browser mode. |
 | `BROWSER_TIMEOUT_SECONDS` | `30` | Browser navigation and action timeout in seconds. |
 | `BROWSER_WAIT_AFTER_LOAD_SECONDS` | `0` | Optional post-load browser wait before parsing. |
 | `BROWSER_WAIT_FOR_SELECTOR` | blank | Optional CSS selector to wait for in browser mode. |
-| `BROWSER_ACCEPT_COOKIES` | `false` | Try conservative cookie-accept buttons in browser mode. |
-| `TOP_LEADS_LIMIT` | `5` | Number of top leads to show in dashboard summaries. |
-| `OUTPUT_DIRECTORY` | `data/output` | Default generated-output directory. |
-| `LOG_LEVEL` | `INFO` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. |
-| `LOG_FILE` | blank | Optional path for a UTF-8 application log file. |
+| `BROWSER_ACCEPT_COOKIES` | `false` | Try conservative common cookie-accept buttons. |
 
-Precedence is:
+The `.env` file is ignored by Git. Do not store secrets or real credentials in
+this project.
 
-1. Explicit environment variables
-2. Values from `.env`
-3. Application defaults
-
-The `.env` file remains ignored by Git. Do not store secrets or real
-credentials in this project.
-
-Console logging is enabled by default. File logging is optional:
-
-```text
-LOG_LEVEL=DEBUG
-LOG_FILE=logs/lead-intelligence.log
-```
-
-Generated log files should not be committed.
-
-## Scraping Modes
-
-The application supports three scraping modes:
-
-- `static`: Requests plus Beautiful Soup only. This is the default because it is
-  faster, simpler, more resource-efficient, and usually sufficient for public
-  HTML pages.
-- `dynamic`: Chromium rendering with Playwright for JavaScript-rendered public
-  pages.
-- `auto`: Static first, then dynamic only when the static HTML appears
-  insufficient.
-
-Automatic fallback is conservative. It considers short visible text, missing
-title and main heading, or clear JavaScript-required phrases. It does not use
-the absence of email addresses or phone numbers as a fallback trigger.
-
-Install Playwright support with:
-
-```bash
-python -m pip install playwright
-python -m playwright install chromium
-```
-
-Cookie-dialog handling is intentionally limited. When `--accept-cookies` or
-`BROWSER_ACCEPT_COOKIES=true` is used, the browser scraper tries a small list of
-common accept-style button labels. It does not click arbitrary buttons or
-inject JavaScript to bypass consent systems.
-
-The tool does not bypass CAPTCHA, authentication, robots restrictions, access
-controls, anti-bot controls, or blocked HTTP responses. It does not use stealth
-plugins, proxies, or user-agent rotation.
-
-## Docker
-
-The Docker image uses the pinned Playwright Python base image:
-
-```text
-mcr.microsoft.com/playwright/python:v1.61.0-noble
-```
+## Docker Usage
 
 Build the runtime image:
 
@@ -317,226 +330,122 @@ docker build -t lead-intelligence .
 Run CLI commands:
 
 ```bash
-docker run --rm lead-intelligence --help
 docker run --rm lead-intelligence version
 docker run --rm lead-intelligence demo-dashboard
 ```
 
-Generate the fictional demo workbook into the local output folder:
+Generate the fictional Excel demo into a mounted local output directory:
 
 ```bash
 mkdir -p data/output
 docker run --rm \
   -v "$(pwd)/data/output:/app/data/output" \
-  lead-intelligence demo-export
+  lead-intelligence \
+  demo-export
 ```
 
-Run the container with Compose:
+Run with Docker Compose:
 
 ```bash
-docker compose run --rm lead-intelligence --help
+docker compose run --rm lead-intelligence version
 ```
 
-Compose mounts `data/input` read-only and mounts `data/output` plus `logs` as
-writable directories.
+Docker notes:
 
-Build the test target:
+- The image uses the pinned Playwright Python base image
+  `mcr.microsoft.com/playwright/python:v1.61.0-noble`.
+- Chromium is included through the Playwright base image.
+- The runtime container uses a non-root `appuser`.
+- No ports are exposed because the project is a CLI application.
+- Compose mounts `data/input` read-only and mounts `data/output` plus `logs`
+  as writable directories.
+
+## Testing
+
+The current local test result is `320 passed, 1 skipped`, verified with:
 
 ```bash
-docker build --target test -t lead-intelligence:test .
-docker run --rm lead-intelligence:test
+.venv/bin/python -m pytest -q
 ```
 
-Run the local Docker smoke test:
+The test suite covers unit tests, fixture-based parser tests, crawler tests,
+Playwright strategy tests, exporter tests, CLI tests, Docker configuration
+tests, and CI configuration tests.
+
+Run the main checks locally:
 
 ```bash
-scripts/docker-smoke-test.sh
+python -m pytest -v
+python -m compileall src tests
 ```
+
+The optional real-browser local fixture test may be skipped when the local
+browser environment is unavailable. GitHub Actions installs Chromium for CI.
 
 ## Continuous Integration
 
 GitHub Actions runs on pushes to `main`, pull requests targeting `main`, and
-manual workflow dispatches. Outdated runs on the same branch are cancelled, and
-the workflow uses read-only repository permissions.
+manual workflow dispatches. The workflow uses read-only repository permissions
+and cancels outdated runs on the same branch.
 
-CI verifies:
+CI currently runs:
 
-- Python tests.
-- The local Playwright Chromium browser test.
-- Compilation validation with `compileall`.
-- CLI version, dashboard demo, and fictional Excel demo commands.
-- Fictional Excel output generation under `data/output`.
+- Python 3.12 test setup.
+- Playwright Chromium installation.
+- `pytest` and `compileall` checks.
+- CLI version, fictional dashboard, and fictional Excel demo commands.
 - Docker runtime image build.
-- Docker test image build.
-- Docker Compose configuration.
-- The Docker smoke test.
+- Docker test target build and execution.
+- Docker Compose configuration validation.
+- Docker smoke tests.
 
-The CI workflow uses fictional demo data and local fixtures only. It does not
-scrape public organisations or upload logs containing scraped contact data.
+The CI workflow uses fixtures and fictional demo data. It does not scrape real
+public organisations.
 
-## Retry And Pacing
+Dependabot is configured for weekly checks of Python, GitHub Actions, and
+Docker dependencies.
 
-The scraper retries only controlled, retryable request failures:
+## Ethical And Responsible Use
 
-- Timeouts
-- Connection errors
-- HTTP `408`, `425`, `429`, `500`, `502`, `503`, and `504`
+This project is intended for legitimate B2B/B2G research and portfolio
+demonstration. Use it only with public data and only where you have a lawful
+and appropriate basis to do so.
 
-It does not retry blocking or permanent-looking statuses such as `401`, `403`,
-or `404`. Retry delays use exponential backoff:
+Responsible use means:
 
-```text
-RETRY_BACKOFF_SECONDS * (2 ** (retry_number - 1))
-```
+- Respect website terms, robots rules, rate limits, GDPR, and applicable laws.
+- Do not bypass CAPTCHA, authentication, access controls, or anti-bot systems.
+- Do not use stealth plugins, proxies, or evasion techniques.
+- Do not use the output for personal profiling.
+- Treat contact information as sensitive business data.
+- Keep human review in the loop before outreach or business decisions.
 
-Numeric `Retry-After` headers are respected when they are greater than the
-calculated backoff. HTTP-date `Retry-After` values are ignored for now.
+## Limitations
 
-`RETRY_BACKOFF_SECONDS` controls repeated attempts to the same URL.
-`REQUEST_DELAY_SECONDS` controls the respectful delay between different page
-URLs in a crawl. The crawler remains deliberately rate-limited and does not
-bypass CAPTCHA, anti-bot, or access-control systems.
+- Signal detection is rule-based and depends on explicit keyword evidence.
+- Website structures vary, so extracted contact information may be incomplete.
+- Public contact data may be outdated or ambiguous.
+- Dynamic pages may require site-specific selectors or waits.
+- Lead scoring supports prioritisation but does not prove purchasing intent.
+- Legal review is necessary before using similar tooling for production
+  outreach.
 
-Example:
+## Future Improvements
 
-```text
-MAX_RETRIES=2
-RETRY_BACKOFF_SECONDS=1
-REQUEST_DELAY_SECONDS=1
-```
+Potential future work, not currently implemented:
 
-## Lead Scoring
+- HubSpot integration.
+- Scheduled tender monitoring.
+- Richer data-quality validation.
+- Configurable scoring profiles.
+- A review interface for manual qualification.
+- Official API integrations where available.
+- Observability and metrics for longer-running research jobs.
 
-Default scoring weights:
+## Author
 
-- Street lighting: 25
-- Procurement: 20
-- Smart city: 15
-- Energy efficiency: 15
-- Climate action: 10
-- Infrastructure modernisation: 10
-- Municipal utility: 5
-- Contact information: 5
+Md Rakibul Hassan
 
-Scores are capped at 100 and classified as:
+## License
 
-- High: 80-100
-- Medium: 50-79
-- Low: 0-49
-
-## Excel Reporting
-
-The exporter creates an `.xlsx` workbook with four sheets:
-
-- All Leads: one row per analysed organisation.
-- High Priority: only leads with High priority, with headers even when empty.
-- Evidence: one row per transparent keyword evidence item.
-- Run Summary: aggregate counts, average score, and export timestamp.
-
-Generate the fictional demo workbook with:
-
-```bash
-python -m src.lead_intelligence demo-export
-python -m tests.manual_export_demo
-```
-
-The demo writes:
-
-```text
-data/output/lead_intelligence_report.xlsx
-```
-
-Generated files in `data/output/` are ignored by Git, except for the
-placeholder `.gitkeep`.
-
-## Management Dashboard
-
-The terminal dashboard is designed for fast decision-making by founders, sales
-managers, and business-development users. It summarises a completed research
-run without generating charts or files.
-
-Included metrics:
-
-- Total, High, Medium, and Low priority leads.
-- Average, highest, and lowest lead scores.
-- Total and unique email addresses.
-- Total and unique phone numbers.
-- Contact links discovered.
-- Evidence items collected.
-- Top leads by score and priority.
-- Most common business signals across organisations.
-
-View the fictional dashboard demo with:
-
-```bash
-python -m src.lead_intelligence demo-dashboard
-python -m tests.manual_dashboard_demo
-```
-
-## Project Status
-
-Completed checkpoints:
-
-- Static scraper
-- Controlled multi-page crawler
-- Rule-based business signal detection
-- Transparent lead scoring
-- Professional Excel export
-- Management dashboard summary
-- Central application configuration
-- Structured application logging
-- Controlled retry and request pacing
-- Professional command-line interface
-- Batch CSV organisation analysis
-- Targeted Playwright fallback for JavaScript-rendered pages
-- Docker packaging and smoke testing
-- GitHub Actions continuous integration
-
-Not implemented yet:
-
-- External APIs or databases
-
-## Planned Workflow
-
-1. Read a list of target organisations.
-2. Visit official organisation websites.
-3. Discover relevant pages.
-4. Extract public business contact information.
-5. Detect infrastructure and energy-related signals.
-6. Clean and deduplicate the records.
-7. Calculate a transparent lead score.
-8. Export the results to Excel.
-9. Review combined reports and failure CSVs for follow-up research.
-
-## Technologies
-
-Current:
-
-- Python
-- Requests
-- Beautiful Soup
-- lxml
-- OpenPyXL
-- Playwright
-- Pytest
-- Git and GitHub
-
-Planned for later checkpoints:
-
-- Pandas
-
-## Project Structure
-
-```text
-smart-infrastructure-lead-intelligence/
-├── data/
-├── reports/
-├── screenshots/
-├── src/
-│   └── lead_intelligence/
-├── tests/
-├── .env.example
-├── .gitignore
-├── LICENSE
-├── README.md
-└── requirements.txt
+MIT License. See [LICENSE](LICENSE).
