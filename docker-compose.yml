@@ -1,0 +1,11 @@
+services:
+  lead-intelligence:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    command: ["--help"]
+    volumes:
+      - ./data/input:/app/data/input:ro
+      - ./data/output:/app/data/output
+      - ./logs:/app/logs

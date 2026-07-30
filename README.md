@@ -296,6 +296,59 @@ The tool does not bypass CAPTCHA, authentication, robots restrictions, access
 controls, anti-bot controls, or blocked HTTP responses. It does not use stealth
 plugins, proxies, or user-agent rotation.
 
+## Docker
+
+The Docker image uses the pinned Playwright Python base image:
+
+```text
+mcr.microsoft.com/playwright/python:v1.61.0-noble
+```
+
+Build the runtime image:
+
+```bash
+docker build -t lead-intelligence .
+```
+
+Run CLI commands:
+
+```bash
+docker run --rm lead-intelligence --help
+docker run --rm lead-intelligence version
+docker run --rm lead-intelligence demo-dashboard
+```
+
+Generate the fictional demo workbook into the local output folder:
+
+```bash
+mkdir -p data/output
+docker run --rm \
+  -v "$(pwd)/data/output:/app/data/output" \
+  lead-intelligence demo-export
+```
+
+Run the container with Compose:
+
+```bash
+docker compose run --rm lead-intelligence --help
+```
+
+Compose mounts `data/input` read-only and mounts `data/output` plus `logs` as
+writable directories.
+
+Build the test target:
+
+```bash
+docker build --target test -t lead-intelligence:test .
+docker run --rm lead-intelligence:test
+```
+
+Run the local Docker smoke test:
+
+```bash
+scripts/docker-smoke-test.sh
+```
+
 ## Retry And Pacing
 
 The scraper retries only controlled, retryable request failures:
