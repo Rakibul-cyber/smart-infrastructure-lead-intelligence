@@ -2,10 +2,14 @@
 set -euo pipefail
 
 IMAGE_NAME="${IMAGE_NAME:-lead-intelligence:smoke}"
-TEMP_OUTPUT_DIR="$(mktemp -d)"
+TEMP_DIR="$(mktemp -d)"
+TEMP_OUTPUT_DIR="${TEMP_DIR}/output"
+
+mkdir -p "${TEMP_OUTPUT_DIR}"
+chmod 0777 "${TEMP_OUTPUT_DIR}"
 
 cleanup() {
-  rm -rf "${TEMP_OUTPUT_DIR}"
+  rm -rf "${TEMP_DIR}"
 }
 
 trap cleanup EXIT

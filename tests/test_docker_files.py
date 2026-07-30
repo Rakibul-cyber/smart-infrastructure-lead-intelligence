@@ -97,3 +97,25 @@ def test_smoke_test_script_exists_and_is_executable() -> None:
     assert script.is_file()
     assert mode & stat.S_IXUSR
     assert os.access(script, os.X_OK)
+
+
+def test_smoke_test_prepares_writable_temporary_output_directory() -> None:
+    """Smoke test should make only its temporary output mount writable."""
+
+    script = read_project_file("scripts/docker-smoke-test.sh")
+
+    assert 'TEMP_DIR="$(mktemp -d)"' in script
+    assert 'TEMP_OUTPUT_DIR="${TEMP_DIR}/output"' in script
+    assert 'mkdir -p "${TEMP_OUTPUT_DIR}"' in script
+    assert 'chmod 0777 "${TEMP_OUTPUT_DIR}"' in script
+    assert '-v "${TEMP_OUTPUT_DIR}:/app/data/output"' in script
+
+
+def test_smoke_test_does_not_override_container_user_or_privileges() -> None:
+    """Smoke test should keep the image non-root and unprivileged."""
+
+    script = read_project_file("scripts/docker-smoke-test.sh")
+
+    assert "--user root" not in script
+    assert "-u root" not in script
+    assert "--privileged" not in script
