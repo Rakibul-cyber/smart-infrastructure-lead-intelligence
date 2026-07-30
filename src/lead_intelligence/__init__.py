@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__version__ = "0.1.0"
+
 from .config import (
     AppConfig,
     load_config,
@@ -22,6 +24,13 @@ from .dashboard import (
     build_dashboard_summary,
     format_dashboard,
     print_dashboard,
+)
+from .demo_data import (
+    build_demo_dashboard_records,
+    build_demo_export_evidence,
+    build_demo_export_records,
+    print_demo_dashboard,
+    run_demo_export,
 )
 from .exporter import (
     LeadRecord,
@@ -54,6 +63,7 @@ from .static_scraper import (
 
 
 __all__ = [
+    "__version__",
     "AppConfig",
     "CrawlFailure",
     "CrawledWebsite",
@@ -66,6 +76,9 @@ __all__ = [
     "SignalCount",
     "SignalEvidence",
     "build_dashboard_summary",
+    "build_demo_dashboard_records",
+    "build_demo_export_evidence",
+    "build_demo_export_records",
     "build_lead_record",
     "build_score_summary",
     "classify_priority",
@@ -88,6 +101,8 @@ __all__ = [
     "parse_positive_float",
     "parse_positive_int",
     "print_dashboard",
+    "print_demo_dashboard",
+    "run_demo_export",
     "score_lead",
     "scrape_page",
     "is_retryable_exception",

@@ -29,6 +29,7 @@ reviewable lead data.
 - Professional Excel reporting with lead tables, evidence, and run summaries.
 - Management dashboard summary for fast review of run-level lead research
   results.
+- Professional command-line interface for one-organisation analysis and demos.
 - Central application configuration with environment-variable and optional
   `.env` file support.
 - Structured console logging with optional UTF-8 file logging.
@@ -41,6 +42,74 @@ machine learning or AI classification.
 
 Lead scores support prioritisation for manual research. They are transparent
 rules, not predictive AI, and do not replace human review.
+
+## Command-Line Usage
+
+Show available commands:
+
+```bash
+python -m src.lead_intelligence --help
+```
+
+Print the package version:
+
+```bash
+python -m src.lead_intelligence version
+```
+
+Analyse one organisation website:
+
+```bash
+python -m src.lead_intelligence analyse \
+  --website https://example-city.de \
+  --name "Example City" \
+  --type Municipality \
+  --city "Example City" \
+  --state Hessen
+```
+
+The `analyse` command crawls the supplied HTTP or HTTPS URL, detects business
+signals, scores the lead, prints a dashboard plus a concise organisation
+summary, and writes an Excel report by default. The summary prints contact
+counts only, not raw email addresses or phone numbers.
+
+Useful analysis options:
+
+```bash
+python -m src.lead_intelligence analyse \
+  --website https://example-city.de \
+  --name "Example City" \
+  --max-pages 3 \
+  --timeout 10 \
+  --request-delay 0.5 \
+  --max-retries 2 \
+  --retry-backoff 1 \
+  --top-limit 5 \
+  --output data/output/example_city.xlsx
+```
+
+Use `--no-export` to print the analysis without creating an Excel workbook.
+Without `--output`, reports are written to:
+
+```text
+data/output/lead_report_<organisation-name>_<YYYYMMDD_HHMMSS>.xlsx
+```
+
+Demo commands use fictional data, do not crawl live websites, and do not use
+real customer data:
+
+```bash
+python -m src.lead_intelligence demo-dashboard
+python -m src.lead_intelligence demo-export
+```
+
+Exit codes:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success, including help/version/demo commands. |
+| `1` | Runtime or network failure that prevents analysis, or zero pages analysed. |
+| `2` | Argument or configuration error. |
 
 ## Configuration
 
@@ -148,6 +217,7 @@ The exporter creates an `.xlsx` workbook with four sheets:
 Generate the fictional demo workbook with:
 
 ```bash
+python -m src.lead_intelligence demo-export
 python -m tests.manual_export_demo
 ```
 
@@ -180,6 +250,7 @@ Included metrics:
 View the fictional dashboard demo with:
 
 ```bash
+python -m src.lead_intelligence demo-dashboard
 python -m tests.manual_dashboard_demo
 ```
 
@@ -196,6 +267,7 @@ Completed checkpoints:
 - Central application configuration
 - Structured application logging
 - Controlled retry and request pacing
+- Professional command-line interface
 
 Not implemented yet:
 
