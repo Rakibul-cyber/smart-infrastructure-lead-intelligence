@@ -194,6 +194,20 @@ docker-compose.yml                    # CLI service with mounted data folders.
 .github/dependabot.yml                # Weekly dependency update checks.
 ```
 
+## Screenshots
+
+Project screenshots are planned in the following order. The image files are not
+embedded yet so the README does not contain broken image references before the
+captures exist.
+
+- [ ] CLI analysis — `docs/screenshots/cli-analysis.png`
+- [ ] Management dashboard — `docs/screenshots/dashboard.png`
+- [ ] Excel workbook — `docs/screenshots/excel-report.png`
+- [ ] GitHub Actions CI — `docs/screenshots/github-actions.png`
+- [ ] Docker demo — `docs/screenshots/docker-demo.png`
+
+[View the screenshot capture guide](docs/screenshots/README.md)
+
 ## Quick Start
 
 macOS/Linux:
