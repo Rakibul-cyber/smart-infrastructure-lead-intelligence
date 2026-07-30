@@ -99,23 +99,52 @@ def test_smoke_test_script_exists_and_is_executable() -> None:
     assert os.access(script, os.X_OK)
 
 
-def test_smoke_test_prepares_writable_temporary_output_directory() -> None:
-    """Smoke test should make only its temporary output mount writable."""
+def test_smoke_test_uses_temporary_docker_volume() -> None:
+    """Smoke test should use a temporary Docker volume for Excel output."""
 
     script = read_project_file("scripts/docker-smoke-test.sh")
 
-    assert 'TEMP_DIR="$(mktemp -d)"' in script
-    assert 'TEMP_OUTPUT_DIR="${TEMP_DIR}/output"' in script
-    assert 'mkdir -p "${TEMP_OUTPUT_DIR}"' in script
-    assert 'chmod 0777 "${TEMP_OUTPUT_DIR}"' in script
-    assert '-v "${TEMP_OUTPUT_DIR}:/app/data/output"' in script
+    assert 'VOLUME_NAME="lead-intelligence-smoke-${RANDOM}-$$"' in script
+    assert 'docker volume create "${VOLUME_NAME}"' in script
+    assert '-v "${VOLUME_NAME}:/app/data/output"' in script
 
 
-def test_smoke_test_does_not_override_container_user_or_privileges() -> None:
-    """Smoke test should keep the image non-root and unprivileged."""
+def test_smoke_test_cleans_up_temporary_docker_volume() -> None:
+    """Smoke test should remove the temporary Docker volume on exit."""
 
     script = read_project_file("scripts/docker-smoke-test.sh")
 
-    assert "--user root" not in script
-    assert "-u root" not in script
+    assert 'docker volume rm -f "${VOLUME_NAME}"' in script
+    assert "trap cleanup EXIT" in script
+
+
+def test_smoke_test_initialises_volume_permissions_with_root() -> None:
+    """Smoke test may use root only to prepare volume ownership."""
+
+    script = read_project_file("scripts/docker-smoke-test.sh")
+
+    assert "--user root" in script
+    assert "chown -R appuser:appuser /app/data/output" in script
+
+
+def test_smoke_test_runs_demo_export_as_image_user() -> None:
+    """demo-export should run as the Dockerfile's non-root user."""
+
+    script = read_project_file("scripts/docker-smoke-test.sh")
+    demo_export_index = script.index('"${IMAGE_NAME}" demo-export')
+    run_index = script.rfind("docker run --rm", 0, demo_export_index)
+    demo_export_block = script[run_index:demo_export_index]
+
+    assert "--user root" not in demo_export_block
+    assert "-u root" not in demo_export_block
     assert "--privileged" not in script
+
+
+def test_smoke_test_verifies_xlsx_inside_volume() -> None:
+    """Smoke test should verify an Excel workbook inside the volume."""
+
+    script = read_project_file("scripts/docker-smoke-test.sh")
+
+    assert '-v "${VOLUME_NAME}:/app/data/output:ro"' in script
+    assert 'find /app/data/output -maxdepth 1 -type f -name "*.xlsx"' in script
+    assert "grep -q ." in script
