@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+from .config import (
+    AppConfig,
+    load_config,
+    load_config_with_env_file,
+    load_env_file,
+    normalise_log_level,
+    parse_positive_float,
+    parse_positive_int,
+)
 from .crawler import (
     CrawlFailure,
     CrawledWebsite,
@@ -41,6 +50,7 @@ from .static_scraper import (
 
 
 __all__ = [
+    "AppConfig",
     "CrawlFailure",
     "CrawledWebsite",
     "DashboardSummary",
@@ -61,9 +71,15 @@ __all__ = [
     "detect_signals_in_text",
     "export_leads_to_excel",
     "format_dashboard",
+    "load_config",
+    "load_config_with_env_file",
+    "load_env_file",
     "normalise_crawl_url",
+    "normalise_log_level",
     "normalise_text",
     "parse_page",
+    "parse_positive_float",
+    "parse_positive_int",
     "print_dashboard",
     "score_lead",
     "scrape_page",

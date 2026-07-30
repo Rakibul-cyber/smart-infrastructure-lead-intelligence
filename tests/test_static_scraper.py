@@ -4,14 +4,17 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
+import src.lead_intelligence.static_scraper as static_scraper_module
 from src.lead_intelligence.static_scraper import (
     clean_link,
+    download_page,
     extract_emails,
     extract_links,
     extract_phone_numbers,
     extract_visible_text,
     normalise_domain,
     parse_page,
+    scrape_page,
 )
 
 
@@ -187,3 +190,114 @@ def test_parse_page_returns_complete_result() -> None:
     assert len(result.absolute_links) == 5
     assert len(result.internal_links) == 4
     assert len(result.contact_links) == 4
+
+
+def test_download_page_passes_configured_timeout_and_user_agent(
+    monkeypatch,
+) -> None:
+    """download_page should pass timeout and User-Agent to requests.get."""
+
+    captured_request: dict[str, object] = {}
+
+    class FakeResponse:
+        text = "<html><body>Example</body></html>"
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(
+        url: str,
+        headers: dict[str, str],
+        timeout: float,
+    ) -> FakeResponse:
+        captured_request["url"] = url
+        captured_request["headers"] = headers
+        captured_request["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        static_scraper_module.requests,
+        "get",
+        fake_get,
+    )
+
+    html = download_page(
+        "https://example-city.de",
+        timeout=7.5,
+        user_agent="ConfiguredAgent/1.0",
+    )
+
+    assert html == "<html><body>Example</body></html>"
+    assert captured_request["url"] == "https://example-city.de"
+    assert captured_request["timeout"] == 7.5
+    assert captured_request["headers"] == {
+        "User-Agent": "ConfiguredAgent/1.0"
+    }
+
+
+def test_scrape_page_forwards_timeout_and_user_agent(
+    monkeypatch,
+) -> None:
+    """scrape_page should forward HTTP configuration to download_page."""
+
+    captured_call: dict[str, object] = {}
+
+    def fake_download_page(
+        url: str,
+        *,
+        timeout: float,
+        user_agent: str,
+    ) -> str:
+        captured_call["url"] = url
+        captured_call["timeout"] = timeout
+        captured_call["user_agent"] = user_agent
+        return (
+            "<html><head><title>Configured</title></head>"
+            "<body><h1>Configured Page</h1></body></html>"
+        )
+
+    monkeypatch.setattr(
+        static_scraper_module,
+        "download_page",
+        fake_download_page,
+    )
+
+    result = scrape_page(
+        "https://example-city.de",
+        timeout=4.0,
+        user_agent="ConfiguredAgent/2.0",
+    )
+
+    assert result.title == "Configured"
+    assert captured_call == {
+        "url": "https://example-city.de",
+        "timeout": 4.0,
+        "user_agent": "ConfiguredAgent/2.0",
+    }
+
+
+def test_scrape_page_legacy_call_without_config_still_works(
+    monkeypatch,
+) -> None:
+    """scrape_page(url) should remain backward compatible."""
+
+    def fake_download_page(
+        url: str,
+        *,
+        timeout: float,
+        user_agent: str,
+    ) -> str:
+        return (
+            "<html><head><title>Legacy</title></head>"
+            "<body><h1>Legacy Page</h1></body></html>"
+        )
+
+    monkeypatch.setattr(
+        static_scraper_module,
+        "download_page",
+        fake_download_page,
+    )
+
+    result = scrape_page("https://example-city.de")
+
+    assert result.title == "Legacy"

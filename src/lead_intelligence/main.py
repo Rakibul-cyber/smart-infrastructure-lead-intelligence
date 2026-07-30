@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import sys
+
 import requests
 
+from .config import load_config_with_env_file
 from .crawler import crawl_website
 from .scorer import score_lead
 from .signal_detector import detect_signals_from_pages
@@ -61,16 +64,32 @@ def format_criterion_name(criterion: str) -> str:
 def main() -> None:
     """Run static scraper and crawler demonstrations."""
 
+    try:
+        config = load_config_with_env_file()
+
+    except ValueError as error:
+        print(f"Configuration error: {error}")
+        sys.exit(2)
+
     target_url = "https://example.com"
 
     print("=" * 70)
     print("SMART INFRASTRUCTURE LEAD INTELLIGENCE")
     print("=" * 70)
+    print("\nCONFIGURATION")
+    print("-" * 70)
+    print(f"Max pages per site: {config.max_pages_per_site}")
+    print(f"Request timeout: {config.request_timeout}")
+    print(f"Output directory: {config.output_directory}")
     print(f"Target URL: {target_url}")
     print("Downloading and analysing webpage...")
 
     try:
-        result = scrape_page(target_url)
+        result = scrape_page(
+            target_url,
+            timeout=config.request_timeout,
+            user_agent=config.user_agent,
+        )
 
     except requests.RequestException as error:
         print(f"\nScraping failed: {error}")
@@ -119,7 +138,9 @@ def main() -> None:
     try:
         crawled_website = crawl_website(
             "https://example.com",
-            max_pages=2,
+            max_pages=config.max_pages_per_site,
+            request_timeout=config.request_timeout,
+            user_agent=config.user_agent,
         )
 
     except requests.RequestException as error:

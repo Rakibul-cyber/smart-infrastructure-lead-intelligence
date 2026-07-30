@@ -29,7 +29,12 @@ def install_fake_scraper(monkeypatch: pytest.MonkeyPatch) -> None:
         INFRASTRUCTURE_URL: "crawler_infrastructure.html",
     }
 
-    def fake_scrape_page(url: str) -> ScrapedPage:
+    def fake_scrape_page(
+        url: str,
+        *,
+        timeout: float = 20.0,
+        user_agent: str = "SmartInfrastructureLeadIntelligence/0.1",
+    ) -> ScrapedPage:
         normalized_url = normalise_crawl_url(url)
 
         if normalized_url == MISSING_URL:
@@ -230,3 +235,65 @@ def test_page_results_order_matches_visited_urls_order(
         page_result.url
         for page_result in result.page_results
     ] == result.visited_urls
+
+
+def test_crawler_forwards_timeout_and_user_agent_to_scrape_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Crawler should pass configured HTTP values to scrape_page."""
+
+    captured_calls: list[tuple[str, float, str]] = []
+
+    def fake_scrape_page(
+        url: str,
+        *,
+        timeout: float,
+        user_agent: str,
+    ) -> ScrapedPage:
+        captured_calls.append(
+            (
+                url,
+                timeout,
+                user_agent,
+            )
+        )
+        return parse_page(
+            url=url,
+            html=(
+                "<html><head><title>Configured</title></head>"
+                "<body><h1>Configured</h1></body></html>"
+            ),
+        )
+
+    monkeypatch.setattr(
+        crawler_module,
+        "scrape_page",
+        fake_scrape_page,
+    )
+
+    crawl_website(
+        BASE_URL,
+        max_pages=1,
+        request_timeout=6.5,
+        user_agent="ConfiguredCrawler/1.0",
+    )
+
+    assert captured_calls == [
+        (
+            BASE_URL,
+            6.5,
+            "ConfiguredCrawler/1.0",
+        )
+    ]
+
+
+def test_crawler_legacy_call_without_config_still_works(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """crawl_website(start_url) should still work with default config."""
+
+    install_fake_scraper(monkeypatch)
+
+    result = crawl_website(BASE_URL, max_pages=1)
+
+    assert result.visited_urls == [BASE_URL]

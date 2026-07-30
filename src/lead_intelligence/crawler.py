@@ -6,6 +6,7 @@ from urllib.parse import ParseResult, urlparse, urlunparse, urldefrag
 
 import requests
 
+from .config import DEFAULT_REQUEST_TIMEOUT, DEFAULT_USER_AGENT
 from .static_scraper import ScrapedPage, normalise_domain, scrape_page
 
 
@@ -73,6 +74,9 @@ def normalise_crawl_url(url: str) -> str:
 def crawl_website(
     start_url: str,
     max_pages: int = 5,
+    *,
+    request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    user_agent: str = DEFAULT_USER_AGENT,
 ) -> CrawledWebsite:
     """
     Crawl a small number of internal pages and combine public contact data.
@@ -110,7 +114,11 @@ def crawl_website(
             continue
 
         try:
-            page_result = scrape_page(current_url)
+            page_result = scrape_page(
+                current_url,
+                timeout=request_timeout,
+                user_agent=user_agent,
+            )
 
         except requests.RequestException as error:
             failed_url_set.add(current_url)

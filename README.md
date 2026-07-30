@@ -29,6 +29,8 @@ reviewable lead data.
 - Professional Excel reporting with lead tables, evidence, and run summaries.
 - Management dashboard summary for fast review of run-level lead research
   results.
+- Central application configuration with environment-variable and optional
+  `.env` file support.
 - Offline Pytest coverage using deterministic HTML fixtures.
 
 Business signal detection is intentionally simple and inspectable at this
@@ -37,6 +39,38 @@ machine learning or AI classification.
 
 Lead scores support prioritisation for manual research. They are transparent
 rules, not predictive AI, and do not replace human review.
+
+## Configuration
+
+Configuration uses the Python standard library and can be supplied through
+environment variables or an optional `.env` file.
+
+Create a local environment file with:
+
+```bash
+cp .env.example .env
+```
+
+Supported variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `REQUEST_TIMEOUT` | `20` | HTTP request timeout in seconds. |
+| `REQUEST_DELAY_SECONDS` | `1` | Reserved crawl delay setting for later use. |
+| `MAX_PAGES_PER_SITE` | `5` | Maximum successful pages to crawl per site. |
+| `USER_AGENT` | `SmartInfrastructureLeadIntelligence/0.1` | HTTP User-Agent string. |
+| `TOP_LEADS_LIMIT` | `5` | Number of top leads to show in dashboard summaries. |
+| `OUTPUT_DIRECTORY` | `data/output` | Default generated-output directory. |
+| `LOG_LEVEL` | `INFO` | Reserved logging level setting for later use. |
+
+Precedence is:
+
+1. Explicit environment variables
+2. Values from `.env`
+3. Application defaults
+
+The `.env` file remains ignored by Git. Do not store secrets or real
+credentials in this project.
 
 ## Lead Scoring
 
@@ -114,6 +148,7 @@ Completed checkpoints:
 - Transparent lead scoring
 - Professional Excel export
 - Management dashboard summary
+- Central application configuration
 
 Not implemented yet:
 

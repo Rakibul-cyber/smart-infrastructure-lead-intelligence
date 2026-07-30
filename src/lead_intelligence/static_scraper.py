@@ -7,6 +7,8 @@ from urllib.parse import urljoin, urlparse, urldefrag
 import requests
 from bs4 import BeautifulSoup
 
+from .config import DEFAULT_REQUEST_TIMEOUT, DEFAULT_USER_AGENT
+
 
 EMAIL_PATTERN = re.compile(
     r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
@@ -43,7 +45,12 @@ class ScrapedPage:
     contact_links: list[str]
 
 
-def download_page(url: str) -> str:
+def download_page(
+    url: str,
+    *,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    user_agent: str = DEFAULT_USER_AGENT,
+) -> str:
     """
     Download raw HTML from a public webpage.
 
@@ -59,16 +66,13 @@ def download_page(url: str) -> str:
     """
 
     headers = {
-        "User-Agent": (
-            "Mozilla/5.0 "
-            "(compatible; SmartInfrastructureLeadIntelligence/0.1)"
-        )
+        "User-Agent": user_agent
     }
 
     response = requests.get(
         url,
         headers=headers,
-        timeout=20,
+        timeout=timeout,
     )
 
     response.raise_for_status()
@@ -336,12 +340,21 @@ def parse_page(
     )
 
 
-def scrape_page(url: str) -> ScrapedPage:
+def scrape_page(
+    url: str,
+    *,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    user_agent: str = DEFAULT_USER_AGENT,
+) -> ScrapedPage:
     """
     Download and parse one webpage.
     """
 
-    html = download_page(url)
+    html = download_page(
+        url,
+        timeout=timeout,
+        user_agent=user_agent,
+    )
 
     return parse_page(
         url=url,
