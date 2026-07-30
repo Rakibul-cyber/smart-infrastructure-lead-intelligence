@@ -65,7 +65,7 @@ jobs:
           find data/output -maxdepth 1 -type f -name "*.xlsx" | grep -q .
 
       - name: Upload fictional Excel demo
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fictional-excel-demo
           path: data/output/*.xlsx
