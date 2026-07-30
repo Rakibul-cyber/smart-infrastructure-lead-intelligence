@@ -6,6 +6,13 @@ from .crawler import (
     crawl_website,
     normalise_crawl_url,
 )
+from .scorer import (
+    LeadScore,
+    ScoreBreakdownItem,
+    build_score_summary,
+    classify_priority,
+    score_lead,
+)
 from .signal_detector import (
     DetectedSignals,
     SignalEvidence,
@@ -25,8 +32,12 @@ __all__ = [
     "CrawlFailure",
     "CrawledWebsite",
     "DetectedSignals",
+    "LeadScore",
     "ScrapedPage",
+    "ScoreBreakdownItem",
     "SignalEvidence",
+    "build_score_summary",
+    "classify_priority",
     "create_excerpt",
     "crawl_website",
     "detect_signals_from_pages",
@@ -34,5 +45,6 @@ __all__ = [
     "normalise_crawl_url",
     "normalise_text",
     "parse_page",
+    "score_lead",
     "scrape_page",
 ]

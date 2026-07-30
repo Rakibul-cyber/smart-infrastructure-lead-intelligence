@@ -2,7 +2,7 @@
 
 A Python-based portfolio project for discovering, extracting, and analysing
 publicly available B2B and public-sector lead data. Later checkpoints may add
-cleaning, scoring, and export workflows.
+cleaning and export workflows.
 
 ## Overview
 
@@ -24,11 +24,35 @@ reviewable lead data.
 - Controlled breadth-first crawling across a small number of internal pages.
 - Business signal detection for smart infrastructure sales research.
 - Transparent rule-based keyword matching with English and German terms.
+- Transparent lead scoring based on detected signals and public contact
+  information.
 - Offline Pytest coverage using deterministic HTML fixtures.
 
 Business signal detection is intentionally simple and inspectable at this
 stage. It uses explicit keyword categories and evidence excerpts rather than
 machine learning or AI classification.
+
+Lead scores support prioritisation for manual research. They are transparent
+rules, not predictive AI, and do not replace human review.
+
+## Lead Scoring
+
+Default scoring weights:
+
+- Street lighting: 25
+- Procurement: 20
+- Smart city: 15
+- Energy efficiency: 15
+- Climate action: 10
+- Infrastructure modernisation: 10
+- Municipal utility: 5
+- Contact information: 5
+
+Scores are capped at 100 and classified as:
+
+- High: 80-100
+- Medium: 50-79
+- Low: 0-49
 
 ## Project Status
 
@@ -37,10 +61,10 @@ Completed checkpoints:
 - Static scraper
 - Controlled multi-page crawler
 - Rule-based business signal detection
+- Transparent lead scoring
 
 Not implemented yet:
 
-- Lead scoring
 - Excel or data export
 - Dynamic website automation
 - External APIs or databases

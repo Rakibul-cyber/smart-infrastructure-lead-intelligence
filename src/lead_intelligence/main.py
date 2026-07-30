@@ -3,6 +3,7 @@ from __future__ import annotations
 import requests
 
 from .crawler import crawl_website
+from .scorer import score_lead
 from .signal_detector import detect_signals_from_pages
 from .static_scraper import scrape_page
 
@@ -49,6 +50,12 @@ def format_yes_no(value: bool) -> str:
         return "Yes"
 
     return "No"
+
+
+def format_criterion_name(criterion: str) -> str:
+    """Format a score criterion for console output."""
+
+    return criterion.replace("_", " ").capitalize()
 
 
 def main() -> None:
@@ -187,14 +194,38 @@ def main() -> None:
 
     if not signals.evidence:
         print("- None found")
+    else:
+        for evidence_item in signals.evidence[:5]:
+            print(
+                f"[{evidence_item.category}] "
+                f"{evidence_item.keyword} — "
+                f"{evidence_item.excerpt} — "
+                f"{evidence_item.source_url}"
+            )
+
+    lead_score = score_lead(
+        signals=signals,
+        emails=crawled_website.emails,
+        phone_numbers=crawled_website.phone_numbers,
+    )
+
+    print("\n" + "=" * 70)
+    print("LEAD SCORE")
+    print("=" * 70)
+    print(f"Total score: {lead_score.total_score}/100")
+    print(f"Priority: {lead_score.priority}")
+    print(f"Summary: {lead_score.summary}")
+    print("\nBreakdown:")
+
+    if not lead_score.breakdown:
+        print("- None")
         return
 
-    for evidence_item in signals.evidence[:5]:
+    for breakdown_item in lead_score.breakdown:
         print(
-            f"[{evidence_item.category}] "
-            f"{evidence_item.keyword} — "
-            f"{evidence_item.excerpt} — "
-            f"{evidence_item.source_url}"
+            f"+{breakdown_item.points} "
+            f"{format_criterion_name(breakdown_item.criterion)} — "
+            f"{breakdown_item.reason}"
         )
 
 
