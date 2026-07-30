@@ -91,6 +91,9 @@ def main() -> None:
     print("-" * 70)
     print(f"Max pages per site: {config.max_pages_per_site}")
     print(f"Request timeout: {config.request_timeout}")
+    print(f"Max retries: {config.max_retries}")
+    print(f"Retry backoff: {config.retry_backoff_seconds}")
+    print(f"Request delay: {config.request_delay_seconds}")
     print(f"Output directory: {config.output_directory}")
     print(f"Target URL: {target_url}")
     print("Downloading and analysing webpage...")
@@ -100,6 +103,8 @@ def main() -> None:
             target_url,
             timeout=config.request_timeout,
             user_agent=config.user_agent,
+            max_retries=config.max_retries,
+            retry_backoff_seconds=config.retry_backoff_seconds,
         )
 
     except requests.RequestException as error:
@@ -153,6 +158,9 @@ def main() -> None:
             max_pages=config.max_pages_per_site,
             request_timeout=config.request_timeout,
             user_agent=config.user_agent,
+            max_retries=config.max_retries,
+            retry_backoff_seconds=config.retry_backoff_seconds,
+            request_delay_seconds=config.request_delay_seconds,
         )
 
     except requests.RequestException as error:

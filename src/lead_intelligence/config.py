@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_REQUEST_TIMEOUT = 20.0
 DEFAULT_REQUEST_DELAY_SECONDS = 1.0
 DEFAULT_MAX_PAGES_PER_SITE = 5
+DEFAULT_MAX_RETRIES = 2
+DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
 DEFAULT_USER_AGENT = "SmartInfrastructureLeadIntelligence/0.1"
 DEFAULT_TOP_LEADS_LIMIT = 5
 DEFAULT_OUTPUT_DIRECTORY = Path("data/output")
@@ -35,6 +37,8 @@ class AppConfig:
     request_timeout: float = DEFAULT_REQUEST_TIMEOUT
     request_delay_seconds: float = DEFAULT_REQUEST_DELAY_SECONDS
     max_pages_per_site: int = DEFAULT_MAX_PAGES_PER_SITE
+    max_retries: int = DEFAULT_MAX_RETRIES
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS
     user_agent: str = DEFAULT_USER_AGENT
     top_leads_limit: int = DEFAULT_TOP_LEADS_LIMIT
     output_directory: Path = DEFAULT_OUTPUT_DIRECTORY
@@ -117,6 +121,38 @@ def parse_positive_int(
     return parsed_value
 
 
+def parse_non_negative_int(
+    value: str | None,
+    default: int,
+    variable_name: str,
+) -> int:
+    """
+    Parse a zero-or-greater integer from an environment variable value.
+
+    Missing or blank values return the supplied default.
+    """
+
+    if value is None or not value.strip():
+        return default
+
+    stripped_value = value.strip()
+
+    try:
+        parsed_value = int(stripped_value)
+
+    except ValueError as error:
+        raise ValueError(
+            f"{variable_name} must be a valid integer."
+        ) from error
+
+    if parsed_value < 0:
+        raise ValueError(
+            f"{variable_name} must be zero or greater."
+        )
+
+    return parsed_value
+
+
 def normalise_log_level(value: str | None) -> str:
     """
     Normalize and validate a log level value.
@@ -193,6 +229,17 @@ def load_config(
             value=environment.get("MAX_PAGES_PER_SITE"),
             default=DEFAULT_MAX_PAGES_PER_SITE,
             variable_name="MAX_PAGES_PER_SITE",
+        ),
+        max_retries=parse_non_negative_int(
+            value=environment.get("MAX_RETRIES"),
+            default=DEFAULT_MAX_RETRIES,
+            variable_name="MAX_RETRIES",
+        ),
+        retry_backoff_seconds=parse_positive_float(
+            value=environment.get("RETRY_BACKOFF_SECONDS"),
+            default=DEFAULT_RETRY_BACKOFF_SECONDS,
+            variable_name="RETRY_BACKOFF_SECONDS",
+            allow_zero=True,
         ),
         user_agent=user_agent,
         top_leads_limit=parse_positive_int(

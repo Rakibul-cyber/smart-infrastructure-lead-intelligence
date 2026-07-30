@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import logging
 import re
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse, urldefrag
 
 import requests
 from bs4 import BeautifulSoup
 
-from .config import DEFAULT_REQUEST_TIMEOUT, DEFAULT_USER_AGENT
+from .config import (
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_REQUEST_TIMEOUT,
+    DEFAULT_RETRY_BACKOFF_SECONDS,
+    DEFAULT_USER_AGENT,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +39,16 @@ CONTACT_KEYWORDS = (
     "abteilung",
 )
 
+RETRYABLE_STATUS_CODES = {
+    408,
+    425,
+    429,
+    500,
+    502,
+    503,
+    504,
+}
+
 
 @dataclass
 class ScrapedPage:
@@ -48,11 +65,67 @@ class ScrapedPage:
     contact_links: list[str]
 
 
+def is_retryable_exception(
+    error: requests.RequestException,
+) -> bool:
+    """Return whether a request exception is safe to retry."""
+
+    if isinstance(error, requests.Timeout | requests.ConnectionError):
+        return True
+
+    if isinstance(error, requests.HTTPError):
+        response = error.response
+
+        if response is None:
+            return False
+
+        return response.status_code in RETRYABLE_STATUS_CODES
+
+    return False
+
+
+def calculate_retry_delay(
+    attempt_number: int,
+    backoff_seconds: float,
+    retry_after_header: str | None = None,
+) -> float:
+    """
+    Calculate retry delay using exponential backoff.
+
+    attempt_number starts at 1 for the first retry.
+    """
+
+    if attempt_number < 1:
+        raise ValueError("attempt_number must be at least 1")
+
+    if backoff_seconds < 0:
+        raise ValueError("backoff_seconds must be zero or greater")
+
+    calculated_delay = backoff_seconds * (2 ** (attempt_number - 1))
+
+    if retry_after_header is None:
+        return float(calculated_delay)
+
+    try:
+        retry_after_seconds = float(retry_after_header.strip())
+
+    except ValueError:
+        return float(calculated_delay)
+
+    if retry_after_seconds < 0:
+        return float(calculated_delay)
+
+    return float(max(calculated_delay, retry_after_seconds))
+
+
 def download_page(
     url: str,
     *,
     timeout: float = DEFAULT_REQUEST_TIMEOUT,
     user_agent: str = DEFAULT_USER_AGENT,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+    sleep_function: Callable[[float], None] = time.sleep,
 ) -> str:
     """
     Download raw HTML from a public webpage.
@@ -68,22 +141,82 @@ def download_page(
             If the request fails or returns an unsuccessful HTTP status.
     """
 
-    logger.debug("Preparing request for %s", url)
+    if max_retries < 0:
+        raise ValueError("max_retries must be zero or greater")
+
+    if retry_backoff_seconds < 0:
+        raise ValueError(
+            "retry_backoff_seconds must be zero or greater"
+        )
 
     headers = {
         "User-Agent": user_agent
     }
+    total_attempts = 1 + max_retries
 
-    response = requests.get(
-        url,
-        headers=headers,
-        timeout=timeout,
-    )
+    for attempt in range(1, total_attempts + 1):
+        try:
+            logger.debug(
+                "Preparing request for %s attempt=%d/%d",
+                url,
+                attempt,
+                total_attempts,
+            )
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            logger.info("Page downloaded successfully: %s", url)
 
-    response.raise_for_status()
-    logger.info("Page downloaded successfully: %s", url)
+            return response.text
 
-    return response.text
+        except requests.RequestException as error:
+            final_attempt = attempt == total_attempts
+
+            if (
+                final_attempt
+                or not is_retryable_exception(error)
+            ):
+                logger.error(
+                    "Request failed: %s attempt=%d/%d retryable=%s",
+                    url,
+                    attempt,
+                    total_attempts,
+                    is_retryable_exception(error),
+                )
+                raise
+
+            retry_after_header = None
+
+            if isinstance(error, requests.HTTPError):
+                response = error.response
+
+                if response is not None:
+                    retry_after_header = response.headers.get(
+                        "Retry-After"
+                    )
+
+            retry_number = attempt
+            delay = calculate_retry_delay(
+                attempt_number=retry_number,
+                backoff_seconds=retry_backoff_seconds,
+                retry_after_header=retry_after_header,
+            )
+            logger.warning(
+                "Retryable request failure: %s attempt=%d/%d retry=%d/%d "
+                "delay=%.2f",
+                url,
+                attempt,
+                total_attempts,
+                retry_number,
+                max_retries,
+                delay,
+            )
+            sleep_function(delay)
+
+    raise RuntimeError("unreachable request retry state")
 
 
 def normalise_domain(url: str) -> str:
@@ -365,6 +498,9 @@ def scrape_page(
     *,
     timeout: float = DEFAULT_REQUEST_TIMEOUT,
     user_agent: str = DEFAULT_USER_AGENT,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+    sleep_function: Callable[[float], None] = time.sleep,
 ) -> ScrapedPage:
     """
     Download and parse one webpage.
@@ -374,6 +510,9 @@ def scrape_page(
         url,
         timeout=timeout,
         user_agent=user_agent,
+        max_retries=max_retries,
+        retry_backoff_seconds=retry_backoff_seconds,
+        sleep_function=sleep_function,
     )
 
     return parse_page(

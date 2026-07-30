@@ -32,6 +32,7 @@ reviewable lead data.
 - Central application configuration with environment-variable and optional
   `.env` file support.
 - Structured console logging with optional UTF-8 file logging.
+- Controlled retry logic and respectful request pacing for public webpages.
 - Offline Pytest coverage using deterministic HTML fixtures.
 
 Business signal detection is intentionally simple and inspectable at this
@@ -57,8 +58,10 @@ Supported variables:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `REQUEST_TIMEOUT` | `20` | HTTP request timeout in seconds. |
-| `REQUEST_DELAY_SECONDS` | `1` | Reserved crawl delay setting for later use. |
+| `REQUEST_DELAY_SECONDS` | `1` | Delay between different page URL requests during crawling. |
 | `MAX_PAGES_PER_SITE` | `5` | Maximum successful pages to crawl per site. |
+| `MAX_RETRIES` | `2` | Number of retry attempts for retryable request failures. |
+| `RETRY_BACKOFF_SECONDS` | `1` | Base exponential backoff delay for retries to the same URL. |
 | `USER_AGENT` | `SmartInfrastructureLeadIntelligence/0.1` | HTTP User-Agent string. |
 | `TOP_LEADS_LIMIT` | `5` | Number of top leads to show in dashboard summaries. |
 | `OUTPUT_DIRECTORY` | `data/output` | Default generated-output directory. |
@@ -82,6 +85,37 @@ LOG_FILE=logs/lead-intelligence.log
 ```
 
 Generated log files should not be committed.
+
+## Retry And Pacing
+
+The scraper retries only controlled, retryable request failures:
+
+- Timeouts
+- Connection errors
+- HTTP `408`, `425`, `429`, `500`, `502`, `503`, and `504`
+
+It does not retry blocking or permanent-looking statuses such as `401`, `403`,
+or `404`. Retry delays use exponential backoff:
+
+```text
+RETRY_BACKOFF_SECONDS * (2 ** (retry_number - 1))
+```
+
+Numeric `Retry-After` headers are respected when they are greater than the
+calculated backoff. HTTP-date `Retry-After` values are ignored for now.
+
+`RETRY_BACKOFF_SECONDS` controls repeated attempts to the same URL.
+`REQUEST_DELAY_SECONDS` controls the respectful delay between different page
+URLs in a crawl. The crawler remains deliberately rate-limited and does not
+bypass CAPTCHA, anti-bot, or access-control systems.
+
+Example:
+
+```text
+MAX_RETRIES=2
+RETRY_BACKOFF_SECONDS=1
+REQUEST_DELAY_SECONDS=1
+```
 
 ## Lead Scoring
 
@@ -161,6 +195,7 @@ Completed checkpoints:
 - Management dashboard summary
 - Central application configuration
 - Structured application logging
+- Controlled retry and request pacing
 
 Not implemented yet:
 

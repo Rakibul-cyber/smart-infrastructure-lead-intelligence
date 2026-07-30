@@ -10,6 +10,7 @@ from src.lead_intelligence.config import (
     load_config_with_env_file,
     load_env_file,
     normalise_log_level,
+    parse_non_negative_int,
     parse_positive_float,
     parse_positive_int,
 )
@@ -31,6 +32,8 @@ def test_supplied_mapping_overrides_defaults() -> None:
             "REQUEST_TIMEOUT": "12.5",
             "REQUEST_DELAY_SECONDS": "0",
             "MAX_PAGES_PER_SITE": "9",
+            "MAX_RETRIES": "4",
+            "RETRY_BACKOFF_SECONDS": "0.25",
             "USER_AGENT": "ExampleAgent/1.0",
             "TOP_LEADS_LIMIT": "7",
             "OUTPUT_DIRECTORY": "tmp/output",
@@ -42,6 +45,8 @@ def test_supplied_mapping_overrides_defaults() -> None:
     assert config.request_timeout == 12.5
     assert config.request_delay_seconds == 0
     assert config.max_pages_per_site == 9
+    assert config.max_retries == 4
+    assert config.retry_backoff_seconds == 0.25
     assert config.user_agent == "ExampleAgent/1.0"
     assert config.top_leads_limit == 7
     assert config.output_directory == Path("tmp/output")
@@ -57,6 +62,8 @@ def test_blank_values_use_defaults() -> None:
             "REQUEST_TIMEOUT": " ",
             "REQUEST_DELAY_SECONDS": "\t",
             "MAX_PAGES_PER_SITE": "",
+            "MAX_RETRIES": "",
+            "RETRY_BACKOFF_SECONDS": " ",
             "USER_AGENT": " ",
             "TOP_LEADS_LIMIT": "",
             "OUTPUT_DIRECTORY": " ",
@@ -311,6 +318,78 @@ def test_new_app_config_is_returned_each_time() -> None:
 
     assert first_config == second_config
     assert first_config is not second_config
+
+
+def test_default_max_retries() -> None:
+    """MAX_RETRIES should default to two."""
+
+    assert load_config({}).max_retries == 2
+
+
+def test_default_retry_backoff_seconds() -> None:
+    """RETRY_BACKOFF_SECONDS should default to one second."""
+
+    assert load_config({}).retry_backoff_seconds == 1.0
+
+
+def test_max_retries_zero_is_valid() -> None:
+    """MAX_RETRIES may be zero."""
+
+    assert parse_non_negative_int("0", 2, "MAX_RETRIES") == 0
+    assert load_config({"MAX_RETRIES": "0"}).max_retries == 0
+
+
+def test_negative_retries_raise_value_error() -> None:
+    """Negative retry counts should be rejected."""
+
+    with pytest.raises(ValueError, match="MAX_RETRIES"):
+        parse_non_negative_int("-1", 2, "MAX_RETRIES")
+
+
+def test_invalid_retry_integer_raises_value_error() -> None:
+    """Invalid retry integer text should fail clearly."""
+
+    with pytest.raises(ValueError, match="MAX_RETRIES"):
+        parse_non_negative_int("two", 2, "MAX_RETRIES")
+
+
+def test_zero_retry_backoff_is_valid() -> None:
+    """RETRY_BACKOFF_SECONDS may be zero."""
+
+    assert (
+        load_config({"RETRY_BACKOFF_SECONDS": "0"}).retry_backoff_seconds
+        == 0
+    )
+
+
+def test_negative_backoff_raises_value_error() -> None:
+    """Negative retry backoff should be rejected."""
+
+    with pytest.raises(ValueError, match="RETRY_BACKOFF_SECONDS"):
+        load_config({"RETRY_BACKOFF_SECONDS": "-1"})
+
+
+def test_explicit_retry_environment_values_override_env_file_values(
+    tmp_path: Path,
+) -> None:
+    """Explicit retry config should override env-file retry config."""
+
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "MAX_RETRIES=1\nRETRY_BACKOFF_SECONDS=3\n",
+        encoding="utf-8",
+    )
+
+    config = load_config_with_env_file(
+        path=env_path,
+        environ={
+            "MAX_RETRIES": "5",
+            "RETRY_BACKOFF_SECONDS": "0.5",
+        },
+    )
+
+    assert config.max_retries == 5
+    assert config.retry_backoff_seconds == 0.5
 
 
 def test_default_log_file_is_none() -> None:

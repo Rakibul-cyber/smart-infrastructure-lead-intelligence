@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import ParseResult, urlparse, urlunparse, urldefrag
 
 import requests
 
-from .config import DEFAULT_REQUEST_TIMEOUT, DEFAULT_USER_AGENT
+from .config import (
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_REQUEST_DELAY_SECONDS,
+    DEFAULT_REQUEST_TIMEOUT,
+    DEFAULT_RETRY_BACKOFF_SECONDS,
+    DEFAULT_USER_AGENT,
+)
 from .static_scraper import ScrapedPage, normalise_domain, scrape_page
 
 
@@ -80,17 +88,25 @@ def crawl_website(
     *,
     request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
     user_agent: str = DEFAULT_USER_AGENT,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+    request_delay_seconds: float = DEFAULT_REQUEST_DELAY_SECONDS,
+    sleep_function: Callable[[float], None] = time.sleep,
 ) -> CrawledWebsite:
     """
     Crawl a small number of internal pages and combine public contact data.
 
-    The crawler uses breadth-first traversal, prioritizes contact-related links
-    in each page's queue expansion, and continues past individual request
-    failures.
+    The crawler controls respectful delays between different page URLs.
+    Per-page retry backoff is handled by static_scraper.download_page.
     """
 
     if max_pages < 1:
         raise ValueError("max_pages must be at least 1")
+
+    if request_delay_seconds < 0:
+        raise ValueError(
+            "request_delay_seconds must be zero or greater"
+        )
 
     normalized_start_url = normalise_crawl_url(start_url)
     start_domain = normalise_domain(normalized_start_url)
@@ -111,6 +127,7 @@ def crawl_website(
     emails: set[str] = set()
     phone_numbers: set[str] = set()
     contact_links: set[str] = set()
+    attempted_pages = 0
 
     while queue and len(visited_urls) < max_pages:
         current_url = queue.popleft()
@@ -121,11 +138,24 @@ def crawl_website(
         ):
             continue
 
+        if attempted_pages > 0:
+            logger.debug(
+                "Applying request pacing delay: delay=%.2f next_url=%s",
+                request_delay_seconds,
+                current_url,
+            )
+            sleep_function(request_delay_seconds)
+
+        attempted_pages += 1
+
         try:
             page_result = scrape_page(
                 current_url,
                 timeout=request_timeout,
                 user_agent=user_agent,
+                max_retries=max_retries,
+                retry_backoff_seconds=retry_backoff_seconds,
+                sleep_function=sleep_function,
             )
 
         except requests.RequestException as error:

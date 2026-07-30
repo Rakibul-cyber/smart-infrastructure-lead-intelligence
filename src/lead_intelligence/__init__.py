@@ -6,6 +6,7 @@ from .config import (
     load_config_with_env_file,
     load_env_file,
     normalise_log_level,
+    parse_non_negative_int,
     parse_positive_float,
     parse_positive_int,
 )
@@ -45,6 +46,8 @@ from .signal_detector import (
 )
 from .static_scraper import (
     ScrapedPage,
+    calculate_retry_delay,
+    is_retryable_exception,
     parse_page,
     scrape_page,
 )
@@ -69,6 +72,7 @@ __all__ = [
     "configure_logging",
     "create_excerpt",
     "crawl_website",
+    "calculate_retry_delay",
     "detect_signals_from_pages",
     "detect_signals_in_text",
     "export_leads_to_excel",
@@ -80,9 +84,11 @@ __all__ = [
     "normalise_log_level",
     "normalise_text",
     "parse_page",
+    "parse_non_negative_int",
     "parse_positive_float",
     "parse_positive_int",
     "print_dashboard",
     "score_lead",
     "scrape_page",
+    "is_retryable_exception",
 ]

@@ -20,6 +20,12 @@ INFRASTRUCTURE_URL = "https://example-city.de/infrastructure"
 MISSING_URL = "https://example-city.de/missing"
 
 
+def no_sleep(delay: float) -> None:
+    """Do not sleep in tests that are not testing pacing."""
+
+    return None
+
+
 def install_fake_scraper(monkeypatch: pytest.MonkeyPatch) -> None:
     """Replace network scraping with deterministic fixture parsing."""
 
@@ -34,6 +40,9 @@ def install_fake_scraper(monkeypatch: pytest.MonkeyPatch) -> None:
         *,
         timeout: float = 20.0,
         user_agent: str = "SmartInfrastructureLeadIntelligence/0.1",
+        max_retries: int = 2,
+        retry_backoff_seconds: float = 1.0,
+        sleep_function=lambda delay: None,
     ) -> ScrapedPage:
         normalized_url = normalise_crawl_url(url)
 
@@ -68,7 +77,11 @@ def test_start_page_is_visited_first(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=3)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=3,
+        sleep_function=no_sleep,
+    )
 
     assert result.visited_urls[0] == BASE_URL
 
@@ -80,7 +93,11 @@ def test_contact_page_is_prioritized_before_general_page(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=3)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=3,
+        sleep_function=no_sleep,
+    )
 
     assert result.visited_urls == [
         BASE_URL,
@@ -96,7 +113,11 @@ def test_external_links_are_never_visited(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=4)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=4,
+        sleep_function=no_sleep,
+    )
 
     assert "https://external.example/report" not in result.visited_urls
     assert all(
@@ -112,7 +133,11 @@ def test_duplicate_links_and_loops_do_not_duplicate_visits(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=4)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=4,
+        sleep_function=no_sleep,
+    )
 
     assert result.visited_urls.count(BASE_URL) == 1
     assert result.visited_urls.count(CONTACT_URL) == 1
@@ -126,7 +151,11 @@ def test_max_pages_limits_successful_page_visits(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=2)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=2,
+        sleep_function=no_sleep,
+    )
 
     assert result.visited_urls == [
         BASE_URL,
@@ -142,7 +171,11 @@ def test_emails_from_multiple_pages_are_combined_and_deduplicated(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=4)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=4,
+        sleep_function=no_sleep,
+    )
 
     assert result.emails == [
         "contact.office@example-city.de",
@@ -157,7 +190,11 @@ def test_phone_numbers_from_multiple_pages_are_combined_and_deduplicated(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=4)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=4,
+        sleep_function=no_sleep,
+    )
 
     assert result.phone_numbers == [
         "030 1111 2222",
@@ -172,7 +209,11 @@ def test_contact_links_from_multiple_pages_are_combined_and_deduplicated(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=4)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=4,
+        sleep_function=no_sleep,
+    )
 
     assert result.contact_links == [CONTACT_URL]
 
@@ -184,7 +225,11 @@ def test_failed_pages_are_recorded_and_do_not_stop_crawl(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=4)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=4,
+        sleep_function=no_sleep,
+    )
 
     assert result.visited_urls == [
         BASE_URL,
@@ -210,7 +255,11 @@ def test_trailing_slash_and_non_trailing_slash_are_same_target(
         == CONTACT_URL
     )
 
-    result = crawl_website(BASE_URL, max_pages=4)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=4,
+        sleep_function=no_sleep,
+    )
 
     assert result.visited_urls.count(CONTACT_URL) == 1
 
@@ -229,7 +278,11 @@ def test_page_results_order_matches_visited_urls_order(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=3)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=3,
+        sleep_function=no_sleep,
+    )
 
     assert [
         page_result.url
@@ -242,19 +295,24 @@ def test_crawler_forwards_timeout_and_user_agent_to_scrape_page(
 ) -> None:
     """Crawler should pass configured HTTP values to scrape_page."""
 
-    captured_calls: list[tuple[str, float, str]] = []
+    captured_calls: list[tuple[str, float, str, int, float]] = []
 
     def fake_scrape_page(
         url: str,
         *,
         timeout: float,
         user_agent: str,
+        max_retries: int,
+        retry_backoff_seconds: float,
+        sleep_function,
     ) -> ScrapedPage:
         captured_calls.append(
             (
                 url,
                 timeout,
                 user_agent,
+                max_retries,
+                retry_backoff_seconds,
             )
         )
         return parse_page(
@@ -276,6 +334,7 @@ def test_crawler_forwards_timeout_and_user_agent_to_scrape_page(
         max_pages=1,
         request_timeout=6.5,
         user_agent="ConfiguredCrawler/1.0",
+        sleep_function=no_sleep,
     )
 
     assert captured_calls == [
@@ -283,6 +342,8 @@ def test_crawler_forwards_timeout_and_user_agent_to_scrape_page(
             BASE_URL,
             6.5,
             "ConfiguredCrawler/1.0",
+            2,
+            1.0,
         )
     ]
 
@@ -294,7 +355,11 @@ def test_crawler_legacy_call_without_config_still_works(
 
     install_fake_scraper(monkeypatch)
 
-    result = crawl_website(BASE_URL, max_pages=1)
+    result = crawl_website(
+        BASE_URL,
+        max_pages=1,
+        sleep_function=no_sleep,
+    )
 
     assert result.visited_urls == [BASE_URL]
 
@@ -308,7 +373,11 @@ def test_crawler_logs_page_failure_as_warning(
     install_fake_scraper(monkeypatch)
 
     with caplog.at_level("WARNING"):
-        crawl_website(BASE_URL, max_pages=4)
+        crawl_website(
+            BASE_URL,
+            max_pages=4,
+            sleep_function=no_sleep,
+        )
 
     assert any(
         record.levelname == "WARNING"
@@ -326,9 +395,255 @@ def test_crawler_logs_completion(
     install_fake_scraper(monkeypatch)
 
     with caplog.at_level("INFO"):
-        crawl_website(BASE_URL, max_pages=1)
+        crawl_website(
+            BASE_URL,
+            max_pages=1,
+            sleep_function=no_sleep,
+        )
 
     assert any(
         "Crawl completed" in record.message
+        for record in caplog.records
+    )
+
+
+def test_request_delay_does_not_happen_before_first_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Request pacing should not sleep before the first page attempt."""
+
+    attempts: list[str] = []
+    sleeps: list[float] = []
+
+    def fake_scrape_page(
+        url: str,
+        *,
+        timeout: float,
+        user_agent: str,
+        max_retries: int,
+        retry_backoff_seconds: float,
+        sleep_function,
+    ) -> ScrapedPage:
+        attempts.append(url)
+        return parse_page(
+            url=url,
+            html="<html><body><h1>Only one page</h1></body></html>",
+        )
+
+    monkeypatch.setattr(
+        crawler_module,
+        "scrape_page",
+        fake_scrape_page,
+    )
+
+    crawl_website(
+        BASE_URL,
+        max_pages=1,
+        request_delay_seconds=3,
+        sleep_function=sleeps.append,
+    )
+
+    assert attempts == [BASE_URL]
+    assert sleeps == []
+
+
+def test_request_delay_occurs_between_attempted_page_urls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Request pacing should sleep between actual page attempts."""
+
+    install_fake_scraper(monkeypatch)
+    sleeps: list[float] = []
+
+    crawl_website(
+        BASE_URL,
+        max_pages=3,
+        request_delay_seconds=2.5,
+        sleep_function=sleeps.append,
+    )
+
+    assert sleeps == [2.5, 2.5]
+
+
+def test_zero_request_delay_is_allowed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A zero request delay should be valid and forwarded to sleep."""
+
+    install_fake_scraper(monkeypatch)
+    sleeps: list[float] = []
+
+    crawl_website(
+        BASE_URL,
+        max_pages=2,
+        request_delay_seconds=0,
+        sleep_function=sleeps.append,
+    )
+
+    assert sleeps == [0]
+
+
+def test_negative_request_delay_raises_value_error() -> None:
+    """Negative request pacing values should be rejected."""
+
+    with pytest.raises(ValueError):
+        crawl_website(
+            BASE_URL,
+            request_delay_seconds=-1,
+        )
+
+
+def test_retry_related_parameters_and_sleep_function_are_forwarded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Crawler should forward retry settings and sleeper to scrape_page."""
+
+    captured_call: dict[str, object] = {}
+
+    def fake_sleep(delay: float) -> None:
+        return None
+
+    def fake_scrape_page(
+        url: str,
+        *,
+        timeout: float,
+        user_agent: str,
+        max_retries: int,
+        retry_backoff_seconds: float,
+        sleep_function,
+    ) -> ScrapedPage:
+        captured_call["url"] = url
+        captured_call["timeout"] = timeout
+        captured_call["user_agent"] = user_agent
+        captured_call["max_retries"] = max_retries
+        captured_call["retry_backoff_seconds"] = retry_backoff_seconds
+        captured_call["sleep_function"] = sleep_function
+        return parse_page(
+            url=url,
+            html="<html><body><h1>Forwarded</h1></body></html>",
+        )
+
+    monkeypatch.setattr(
+        crawler_module,
+        "scrape_page",
+        fake_scrape_page,
+    )
+
+    crawl_website(
+        BASE_URL,
+        max_pages=1,
+        request_timeout=4,
+        user_agent="CrawlerAgent/1.0",
+        max_retries=5,
+        retry_backoff_seconds=0.75,
+        sleep_function=fake_sleep,
+    )
+
+    assert captured_call == {
+        "url": BASE_URL,
+        "timeout": 4,
+        "user_agent": "CrawlerAgent/1.0",
+        "max_retries": 5,
+        "retry_backoff_seconds": 0.75,
+        "sleep_function": fake_sleep,
+    }
+
+
+def test_skipped_duplicate_or_external_urls_do_not_create_extra_delays(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skipped duplicate/external URLs should not add pacing sleeps."""
+
+    install_fake_scraper(monkeypatch)
+    sleeps: list[float] = []
+
+    crawl_website(
+        BASE_URL,
+        max_pages=4,
+        request_delay_seconds=1,
+        sleep_function=sleeps.append,
+    )
+
+    assert sleeps == [1, 1, 1]
+
+
+def test_failed_page_counts_as_attempt_for_pacing_before_next_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed page should trigger pacing before the next actual URL."""
+
+    sleeps: list[float] = []
+
+    def fake_scrape_page(
+        url: str,
+        *,
+        timeout: float,
+        user_agent: str,
+        max_retries: int,
+        retry_backoff_seconds: float,
+        sleep_function,
+    ) -> ScrapedPage:
+        if url == BASE_URL:
+            return parse_page(
+                url=url,
+                html=(
+                    "<html><body><h1>Home</h1>"
+                    "<a href='/missing'>Missing</a>"
+                    "<a href='/next'>Next</a>"
+                    "</body></html>"
+                ),
+            )
+
+        if url == "https://example-city.de/missing":
+            raise requests.RequestException("missing")
+
+        return parse_page(
+            url=url,
+            html="<html><body><h1>Next</h1></body></html>",
+        )
+
+    monkeypatch.setattr(
+        crawler_module,
+        "scrape_page",
+        fake_scrape_page,
+    )
+
+    result = crawl_website(
+        BASE_URL,
+        max_pages=3,
+        request_delay_seconds=2,
+        sleep_function=sleeps.append,
+    )
+
+    assert [
+        failure.url
+        for failure in result.failed_pages
+    ] == ["https://example-city.de/missing"]
+    assert result.visited_urls == [
+        BASE_URL,
+        "https://example-city.de/next",
+    ]
+    assert sleeps == [2, 2]
+
+
+def test_crawler_logs_request_pacing_at_debug(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Request pacing should be logged at DEBUG level."""
+
+    install_fake_scraper(monkeypatch)
+
+    with caplog.at_level("DEBUG"):
+        crawl_website(
+            BASE_URL,
+            max_pages=2,
+            request_delay_seconds=1,
+            sleep_function=lambda delay: None,
+        )
+
+    assert any(
+        record.levelname == "DEBUG"
+        and "Applying request pacing delay" in record.message
         for record in caplog.records
     )
