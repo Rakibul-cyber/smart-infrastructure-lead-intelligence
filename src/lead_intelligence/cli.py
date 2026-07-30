@@ -11,10 +11,18 @@ from urllib.parse import urlparse
 import requests
 
 from . import __version__
+from .batch import (
+    BatchResult,
+    build_dynamic_options_from_config,
+    export_batch_failures,
+    read_parsed_organisations_csv,
+    run_batch_analysis,
+)
 from .config import AppConfig, load_config_with_env_file
 from .crawler import CrawledWebsite, crawl_website
 from .dashboard import build_dashboard_summary, print_dashboard
 from .demo_data import print_demo_dashboard, run_demo_export
+from .dynamic_scraper import DynamicScraperError, validate_css_selector
 from .exporter import LeadRecord, build_lead_record, export_leads_to_excel
 from .logging_config import configure_logging
 from .scorer import LeadScore, score_lead
@@ -169,12 +177,44 @@ def build_parser() -> argparse.ArgumentParser:
     analyse_parser.add_argument("--max-retries", type=non_negative_int)
     analyse_parser.add_argument("--retry-backoff", type=non_negative_float)
     analyse_parser.add_argument("--top-limit", type=positive_int)
+    add_browser_arguments(analyse_parser)
     analyse_parser.add_argument(
         "--no-export",
         action="store_true",
         help="Do not create an Excel report.",
     )
     analyse_parser.set_defaults(handler=handle_analyse)
+
+    batch_parser = subparsers.add_parser(
+        "batch",
+        help="Analyse organisations from a CSV input file.",
+    )
+    batch_parser.add_argument(
+        "--input",
+        required=True,
+        type=Path,
+        help="CSV file containing organisations to analyse.",
+    )
+    batch_parser.add_argument("--output", type=Path)
+    batch_parser.add_argument("--failures-output", type=Path)
+    batch_parser.add_argument("--top-limit", type=positive_int)
+    batch_parser.add_argument("--max-pages", type=positive_int)
+    batch_parser.add_argument("--timeout", type=positive_float)
+    batch_parser.add_argument("--request-delay", type=non_negative_float)
+    batch_parser.add_argument("--max-retries", type=non_negative_int)
+    batch_parser.add_argument("--retry-backoff", type=non_negative_float)
+    add_browser_arguments(batch_parser)
+    batch_parser.add_argument(
+        "--no-export",
+        action="store_true",
+        help="Do not create an Excel report.",
+    )
+    batch_parser.add_argument(
+        "--no-failure-report",
+        action="store_true",
+        help="Do not create a CSV report of failed rows.",
+    )
+    batch_parser.set_defaults(handler=handle_batch)
 
     demo_export_parser = subparsers.add_parser(
         "demo-export",
@@ -195,6 +235,28 @@ def build_parser() -> argparse.ArgumentParser:
     version_parser.set_defaults(handler=handle_version)
 
     return parser
+
+
+def add_browser_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add shared browser-rendering arguments."""
+
+    parser.add_argument(
+        "--scrape-mode",
+        choices=("static", "dynamic", "auto"),
+    )
+    parser.add_argument(
+        "--headed",
+        action="store_true",
+        help="Run Chromium in headed mode when browser rendering is used.",
+    )
+    parser.add_argument("--browser-timeout", type=positive_float)
+    parser.add_argument("--wait-for-selector")
+    parser.add_argument("--browser-wait", type=non_negative_float)
+    parser.add_argument(
+        "--accept-cookies",
+        action="store_true",
+        help="Click a conservative common cookie-accept button if present.",
+    )
 
 
 def apply_overrides(
@@ -223,6 +285,26 @@ def apply_overrides(
     if getattr(args, "top_limit", None) is not None:
         replacements["top_leads_limit"] = args.top_limit
 
+    if getattr(args, "scrape_mode", None) is not None:
+        replacements["scrape_mode"] = args.scrape_mode
+
+    if getattr(args, "headed", False):
+        replacements["browser_headless"] = False
+
+    if getattr(args, "browser_timeout", None) is not None:
+        replacements["browser_timeout_seconds"] = args.browser_timeout
+
+    if getattr(args, "wait_for_selector", None) is not None:
+        replacements["browser_wait_for_selector"] = validate_css_selector(
+            args.wait_for_selector
+        )
+
+    if getattr(args, "browser_wait", None) is not None:
+        replacements["browser_wait_after_load_seconds"] = args.browser_wait
+
+    if getattr(args, "accept_cookies", False):
+        replacements["browser_accept_cookies"] = True
+
     if not replacements:
         return config
 
@@ -245,6 +327,7 @@ def handle_analyse(args: argparse.Namespace) -> int:
         log_file=config.log_file,
     )
     logger.info("CLI analyse command started")
+    print(f"Scraping mode: {config.scrape_mode}")
 
     try:
         crawler_result = crawl_website(
@@ -255,9 +338,11 @@ def handle_analyse(args: argparse.Namespace) -> int:
             max_retries=config.max_retries,
             retry_backoff_seconds=config.retry_backoff_seconds,
             request_delay_seconds=config.request_delay_seconds,
+            scrape_mode=config.scrape_mode,
+            dynamic_options=build_dynamic_options_from_config(config),
         )
 
-    except requests.RequestException as error:
+    except (requests.RequestException, DynamicScraperError) as error:
         logger.error("Analysis crawl failed: %s", error)
         print(f"Analysis failed: {error}")
         return 1
@@ -314,6 +399,94 @@ def handle_analyse(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_batch(args: argparse.Namespace) -> int:
+    """Run batch analysis from a CSV input file."""
+
+    try:
+        base_config = load_config_with_env_file()
+        config = apply_overrides(base_config, args)
+        parsed_organisations = read_parsed_organisations_csv(args.input)
+
+    except FileNotFoundError as error:
+        print(f"CSV error: input file not found: {error.filename}")
+        return 2
+
+    except ValueError as error:
+        print(f"Configuration or CSV error: {error}")
+        return 2
+
+    configure_logging(
+        log_level=config.log_level,
+        log_file=config.log_file,
+    )
+    logger.info("CLI batch command started")
+    print(f"Scraping mode: {config.scrape_mode}")
+
+    timestamp = datetime.now().astimezone()
+
+    try:
+        batch_result = run_batch_analysis(
+            organisations=parsed_organisations,
+            config=config,
+        )
+
+    except ValueError as error:
+        print(f"Batch error: {error}")
+        return 2
+
+    excel_report: Path | None = None
+    failure_report: Path | None = None
+
+    if batch_result.successful_records:
+        dashboard_summary = build_dashboard_summary(
+            batch_result.successful_records,
+            top_limit=config.top_leads_limit,
+        )
+        print_dashboard(dashboard_summary)
+
+        if not args.no_export:
+            excel_report = export_leads_to_excel(
+                records=batch_result.successful_records,
+                evidence_by_website=batch_result.evidence_by_website,
+                output_path=args.output
+                or build_batch_output_path(
+                    output_directory=config.output_directory,
+                    checked_at=timestamp,
+                ),
+            )
+
+    if not args.no_failure_report:
+        failure_report = export_batch_failures(
+            failures=batch_result.failures,
+            output_path=args.failures_output
+            or build_batch_failures_output_path(
+                output_directory=config.output_directory,
+                checked_at=timestamp,
+            ),
+        )
+
+    print_batch_summary(
+        batch_result=batch_result,
+        excel_report=excel_report,
+        failure_report=failure_report,
+        export_disabled=args.no_export,
+        failure_report_disabled=args.no_failure_report,
+    )
+
+    if excel_report is not None:
+        print(f"\nExcel report written to: {excel_report}")
+
+    if failure_report is not None:
+        print(f"Failure report written to: {failure_report}")
+
+    logger.info("CLI batch command finished")
+
+    if batch_result.failures:
+        return 1
+
+    return 0
+
+
 def print_analysis_summary(
     lead_record: LeadRecord,
     crawler_result: CrawledWebsite,
@@ -350,6 +523,61 @@ def build_default_output_path(
     )
 
     return output_directory / filename
+
+
+def build_batch_output_path(
+    output_directory: Path,
+    checked_at: datetime,
+) -> Path:
+    """Build the default Excel report path for a batch run."""
+
+    timestamp = checked_at.strftime("%Y%m%d_%H%M%S")
+
+    return output_directory / f"batch_lead_report_{timestamp}.xlsx"
+
+
+def build_batch_failures_output_path(
+    output_directory: Path,
+    checked_at: datetime,
+) -> Path:
+    """Build the default failure CSV path for a batch run."""
+
+    timestamp = checked_at.strftime("%Y%m%d_%H%M%S")
+
+    return output_directory / f"batch_failures_{timestamp}.csv"
+
+
+def print_batch_summary(
+    batch_result: BatchResult,
+    excel_report: Path | None,
+    failure_report: Path | None,
+    *,
+    export_disabled: bool,
+    failure_report_disabled: bool,
+) -> None:
+    """Print a concise batch analysis summary."""
+
+    if excel_report is not None:
+        excel_report_text = str(excel_report)
+    elif export_disabled:
+        excel_report_text = "disabled"
+    else:
+        excel_report_text = "not created"
+
+    if failure_report is not None:
+        failure_report_text = str(failure_report)
+    elif failure_report_disabled:
+        failure_report_text = "disabled"
+    else:
+        failure_report_text = "not created"
+
+    print("\nBATCH ANALYSIS")
+    print("-" * 70)
+    print(f"Total input rows: {batch_result.total_input_rows}")
+    print(f"Successful: {len(batch_result.successful_records)}")
+    print(f"Failed: {len(batch_result.failures)}")
+    print(f"Excel report: {excel_report_text}")
+    print(f"Failure report: {failure_report_text}")
 
 
 def handle_demo_export(args: argparse.Namespace) -> int:

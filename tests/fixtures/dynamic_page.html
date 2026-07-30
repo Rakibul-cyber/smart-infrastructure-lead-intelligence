@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Dynamic Fixture</title>
+  </head>
+  <body>
+    <main id="app">
+      <p>Loading fictional infrastructure content...</p>
+    </main>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        window.setTimeout(function () {
+          var app = document.getElementById("app");
+          app.innerHTML = [
+            "<section id='dynamic-content'>",
+            "<h1>Fictional Dynamic Infrastructure Office</h1>",
+            "<p>The fictional office is preparing street lighting, smart city, and energy efficiency work.</p>",
+            "<a href='mailto:dynamic@example-city.example'>Email</a>",
+            "<a href='tel:030 1234 5678'>Phone</a>",
+            "<a href='/contact'>Contact team</a>",
+            "</section>"
+          ].join("");
+        }, 50);
+      });
+    </script>
+  </body>
+</html>

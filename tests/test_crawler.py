@@ -10,6 +10,8 @@ from src.lead_intelligence.crawler import (
     crawl_website,
     normalise_crawl_url,
 )
+from src.lead_intelligence.dynamic_scraper import DynamicPageOptions
+from src.lead_intelligence.scrape_strategy import ScrapeDecision
 from src.lead_intelligence.static_scraper import ScrapedPage, parse_page
 
 
@@ -647,3 +649,63 @@ def test_crawler_logs_request_pacing_at_debug(
         and "Applying request pacing delay" in record.message
         for record in caplog.records
     )
+
+
+def test_crawler_default_scrape_mode_remains_static() -> None:
+    """The crawler should default to static scraping for compatibility."""
+
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_strategy(url: str, **kwargs):
+        captured_kwargs.update(kwargs)
+        return ScrapeDecision(
+            requested_mode=kwargs["mode"],
+            used_mode="static",
+            fallback_reason=None,
+            page=parse_page(
+                url=url,
+                html="<html><body><h1>Static</h1></body></html>",
+            ),
+        )
+
+    crawl_website(
+        BASE_URL,
+        max_pages=1,
+        scrape_strategy_function=fake_strategy,
+    )
+
+    assert captured_kwargs["mode"] == "static"
+
+
+def test_crawler_forwards_scrape_mode_and_dynamic_options() -> None:
+    """Crawler should pass browser strategy options to the page fetcher."""
+
+    captured_kwargs: dict[str, object] = {}
+    dynamic_options = DynamicPageOptions(
+        headless=False,
+        wait_for_selector="main.ready",
+    )
+
+    def fake_strategy(url: str, **kwargs):
+        captured_kwargs.update(kwargs)
+        return ScrapeDecision(
+            requested_mode=kwargs["mode"],
+            used_mode="dynamic",
+            fallback_reason="requested",
+            page=parse_page(
+                url=url,
+                html="<html><body><h1>Dynamic</h1></body></html>",
+            ),
+        )
+
+    result = crawl_website(
+        BASE_URL,
+        max_pages=1,
+        scrape_mode="dynamic",
+        dynamic_options=dynamic_options,
+        scrape_strategy_function=fake_strategy,
+    )
+
+    assert captured_kwargs["mode"] == "dynamic"
+    assert captured_kwargs["dynamic_options"] is dynamic_options
+    assert result.page_results[0].main_heading == "Dynamic"

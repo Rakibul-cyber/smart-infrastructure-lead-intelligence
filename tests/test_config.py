@@ -10,6 +10,8 @@ from src.lead_intelligence.config import (
     load_config_with_env_file,
     load_env_file,
     normalise_log_level,
+    normalise_scrape_mode,
+    parse_bool,
     parse_non_negative_int,
     parse_positive_float,
     parse_positive_int,
@@ -39,6 +41,12 @@ def test_supplied_mapping_overrides_defaults() -> None:
             "OUTPUT_DIRECTORY": "tmp/output",
             "LOG_LEVEL": "debug",
             "LOG_FILE": "logs/app.log",
+            "SCRAPE_MODE": "auto",
+            "BROWSER_HEADLESS": "false",
+            "BROWSER_TIMEOUT_SECONDS": "42",
+            "BROWSER_WAIT_AFTER_LOAD_SECONDS": "0.5",
+            "BROWSER_WAIT_FOR_SELECTOR": " main.ready ",
+            "BROWSER_ACCEPT_COOKIES": "yes",
         }
     )
 
@@ -52,6 +60,12 @@ def test_supplied_mapping_overrides_defaults() -> None:
     assert config.output_directory == Path("tmp/output")
     assert config.log_level == "DEBUG"
     assert config.log_file == Path("logs/app.log")
+    assert config.scrape_mode == "auto"
+    assert config.browser_headless is False
+    assert config.browser_timeout_seconds == 42
+    assert config.browser_wait_after_load_seconds == 0.5
+    assert config.browser_wait_for_selector == "main.ready"
+    assert config.browser_accept_cookies is True
 
 
 def test_blank_values_use_defaults() -> None:
@@ -69,6 +83,12 @@ def test_blank_values_use_defaults() -> None:
             "OUTPUT_DIRECTORY": " ",
             "LOG_LEVEL": " ",
             "LOG_FILE": " ",
+            "SCRAPE_MODE": " ",
+            "BROWSER_HEADLESS": " ",
+            "BROWSER_TIMEOUT_SECONDS": " ",
+            "BROWSER_WAIT_AFTER_LOAD_SECONDS": " ",
+            "BROWSER_WAIT_FOR_SELECTOR": " ",
+            "BROWSER_ACCEPT_COOKIES": " ",
         }
     )
 
@@ -149,6 +169,61 @@ def test_invalid_log_level_raises_value_error() -> None:
 
     with pytest.raises(ValueError, match="LOG_LEVEL"):
         normalise_log_level("verbose")
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("true", True),
+        ("FALSE", False),
+        ("1", True),
+        ("0", False),
+        ("yes", True),
+        ("no", False),
+        ("on", True),
+        ("off", False),
+    ],
+)
+def test_boolean_parsing(value: str, expected: bool) -> None:
+    """Common boolean spellings should parse case-insensitively."""
+
+    assert parse_bool(value, False, "BROWSER_HEADLESS") is expected
+
+
+def test_invalid_boolean_raises_value_error() -> None:
+    """Unsupported boolean values should fail clearly."""
+
+    with pytest.raises(ValueError, match="BROWSER_HEADLESS"):
+        parse_bool("maybe", True, "BROWSER_HEADLESS")
+
+
+@pytest.mark.parametrize("value", ["static", "dynamic", "auto", " AUTO "])
+def test_valid_scrape_modes(value: str) -> None:
+    """Supported scrape modes should normalize to lowercase."""
+
+    assert normalise_scrape_mode(value) in {"static", "dynamic", "auto"}
+
+
+def test_invalid_scrape_mode_raises_value_error() -> None:
+    """Unsupported scrape modes should fail clearly."""
+
+    with pytest.raises(ValueError, match="SCRAPE_MODE"):
+        normalise_scrape_mode("stealth")
+
+
+def test_blank_browser_selector_becomes_none() -> None:
+    """Blank selector config should be treated as unset."""
+
+    config = load_config({"BROWSER_WAIT_FOR_SELECTOR": " "})
+
+    assert config.browser_wait_for_selector is None
+
+
+def test_long_browser_selector_raises_value_error() -> None:
+    """Overlong browser selector config should be rejected."""
+
+    with pytest.raises(ValueError, match="BROWSER_WAIT_FOR_SELECTOR"):
+        load_config({"BROWSER_WAIT_FOR_SELECTOR": "." + ("x" * 501)})
 
 
 def test_output_directory_becomes_path() -> None:

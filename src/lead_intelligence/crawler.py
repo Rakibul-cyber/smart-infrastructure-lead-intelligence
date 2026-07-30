@@ -16,10 +16,24 @@ from .config import (
     DEFAULT_RETRY_BACKOFF_SECONDS,
     DEFAULT_USER_AGENT,
 )
+from .dynamic_scraper import DynamicPageOptions, DynamicScraperError
+from .scrape_strategy import ScrapeDecision, ScrapeMode, scrape_with_strategy
 from .static_scraper import ScrapedPage, normalise_domain, scrape_page
 
 
 logger = logging.getLogger(__name__)
+
+
+def default_scrape_strategy(
+    *args,
+    **kwargs,
+) -> ScrapeDecision:
+    """Use the strategy layer with the crawler-local static scraper hook."""
+
+    kwargs.setdefault("static_scrape_function", scrape_page)
+
+    return scrape_with_strategy(*args, **kwargs)
+
 
 @dataclass
 class CrawlFailure:
@@ -92,6 +106,11 @@ def crawl_website(
     retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
     request_delay_seconds: float = DEFAULT_REQUEST_DELAY_SECONDS,
     sleep_function: Callable[[float], None] = time.sleep,
+    scrape_mode: ScrapeMode = "static",
+    dynamic_options: DynamicPageOptions | None = None,
+    scrape_strategy_function: Callable[..., ScrapeDecision] = (
+        default_scrape_strategy
+    ),
 ) -> CrawledWebsite:
     """
     Crawl a small number of internal pages and combine public contact data.
@@ -149,16 +168,19 @@ def crawl_website(
         attempted_pages += 1
 
         try:
-            page_result = scrape_page(
+            scrape_decision = scrape_strategy_function(
                 current_url,
+                mode=scrape_mode,
                 timeout=request_timeout,
                 user_agent=user_agent,
                 max_retries=max_retries,
                 retry_backoff_seconds=retry_backoff_seconds,
+                dynamic_options=dynamic_options,
                 sleep_function=sleep_function,
             )
+            page_result = scrape_decision.page
 
-        except requests.RequestException as error:
+        except (requests.RequestException, DynamicScraperError) as error:
             failed_url_set.add(current_url)
             logger.warning(
                 "Page failed during crawl: %s error=%s",
@@ -177,6 +199,13 @@ def crawl_website(
         visited_urls.append(current_url)
         page_results.append(page_result)
         logger.info("Page successfully visited: %s", current_url)
+
+        if scrape_decision.used_mode == "dynamic":
+            logger.info(
+                "Dynamic scraping used during crawl: url=%s reason=%s",
+                current_url,
+                scrape_decision.fallback_reason or "requested",
+            )
 
         emails.update(page_result.emails)
         phone_numbers.update(page_result.phone_numbers)

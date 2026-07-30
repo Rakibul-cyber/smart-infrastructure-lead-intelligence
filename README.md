@@ -29,7 +29,12 @@ reviewable lead data.
 - Professional Excel reporting with lead tables, evidence, and run summaries.
 - Management dashboard summary for fast review of run-level lead research
   results.
-- Professional command-line interface for one-organisation analysis and demos.
+- Professional command-line interface for one-organisation, batch, and demo
+  workflows.
+- Batch CSV organisation analysis with combined Excel reporting and failure
+  CSV output.
+- Targeted Playwright rendering for JavaScript-heavy pages when explicitly
+  requested or when `auto` mode judges static HTML insufficient.
 - Central application configuration with environment-variable and optional
   `.env` file support.
 - Structured console logging with optional UTF-8 file logging.
@@ -95,6 +100,58 @@ Without `--output`, reports are written to:
 data/output/lead_report_<organisation-name>_<YYYYMMDD_HHMMSS>.xlsx
 ```
 
+Static scraping remains the default. Use dynamic rendering only for websites
+where public content is JavaScript-rendered:
+
+```bash
+python -m src.lead_intelligence analyse \
+  --website https://example-city.de \
+  --name "Example City" \
+  --scrape-mode dynamic \
+  --headed
+```
+
+Use `auto` mode to try the static scraper first and fall back to Chromium only
+when the static HTML looks too thin or clearly asks for JavaScript:
+
+```bash
+python -m src.lead_intelligence analyse \
+  --website https://example-city.de \
+  --name "Example City" \
+  --scrape-mode auto
+```
+
+For pages that need a specific rendered element before extraction:
+
+```bash
+python -m src.lead_intelligence analyse \
+  --website https://example-city.de \
+  --name "Example City" \
+  --scrape-mode dynamic \
+  --wait-for-selector "main .content" \
+  --browser-wait 0.5
+```
+
+Analyse a CSV batch and write a combined Excel report:
+
+```bash
+python -m src.lead_intelligence batch \
+  --input data/input/organisations.example.csv \
+  --output data/output/batch_report.xlsx
+```
+
+The batch command analyses each organisation independently and continues when
+one row fails. It prints a combined dashboard when at least one organisation
+succeeds, writes one Excel workbook for successful records unless `--no-export`
+is supplied, and writes a failure CSV unless `--no-failure-report` is supplied.
+
+Without explicit paths, batch outputs are written to:
+
+```text
+data/output/batch_lead_report_<YYYYMMDD_HHMMSS>.xlsx
+data/output/batch_failures_<YYYYMMDD_HHMMSS>.csv
+```
+
 Demo commands use fictional data, do not crawl live websites, and do not use
 real customer data:
 
@@ -103,13 +160,59 @@ python -m src.lead_intelligence demo-dashboard
 python -m src.lead_intelligence demo-export
 ```
 
+Run the local fictional dynamic-rendering demo with:
+
+```bash
+python -m tests.manual_dynamic_demo
+```
+
 Exit codes:
 
 | Code | Meaning |
 | --- | --- |
 | `0` | Success, including help/version/demo commands. |
-| `1` | Runtime or network failure that prevents analysis, or zero pages analysed. |
-| `2` | Argument or configuration error. |
+| `1` | Analysis ran but failed meaningfully: a one-site runtime/network/no-pages failure, or one or more failed rows in a batch. |
+| `2` | Argument, configuration, or CSV validation error. |
+
+## Batch CSV Analysis
+
+Batch input files are UTF-8 CSV files with flexible, case-insensitive column
+matching. Spaces and hyphens in headers are treated as underscores.
+
+Required columns:
+
+- `organisation_name`
+- `website`
+
+Optional columns:
+
+- `organisation_type`, defaulting to `Unknown`
+- `city`, defaulting to blank
+- `state`, defaulting to blank
+
+Example CSV content:
+
+```csv
+organisation_name,organisation_type,city,state,website
+Example City Infrastructure Office,Municipality,Example City,Example State,https://example-city.example
+Sample Stadtwerke Services,Public Utility,Sampletown,Fictional Region,https://sample-stadtwerke.example
+Fictional Infrastructure Authority,Infrastructure Authority,Demoburg,Example State,https://infrastructure-authority.example
+```
+
+The committed sample file at `data/input/organisations.example.csv` contains
+fictional data only and uses reserved example domains. Running it may still
+attempt normal website requests, so it is primarily a schema example.
+
+Failure reports contain:
+
+- Row Number
+- Organisation Name
+- Website
+- Error
+
+The failure CSV includes headers even when no rows fail. If every organisation
+fails, the command still writes the failure report unless disabled, skips the
+empty Excel workbook, and returns exit code `1`.
 
 ## Configuration
 
@@ -132,6 +235,12 @@ Supported variables:
 | `MAX_RETRIES` | `2` | Number of retry attempts for retryable request failures. |
 | `RETRY_BACKOFF_SECONDS` | `1` | Base exponential backoff delay for retries to the same URL. |
 | `USER_AGENT` | `SmartInfrastructureLeadIntelligence/0.1` | HTTP User-Agent string. |
+| `SCRAPE_MODE` | `static` | Scraping mode: `static`, `dynamic`, or `auto`. |
+| `BROWSER_HEADLESS` | `true` | Run Chromium headlessly when browser rendering is used. |
+| `BROWSER_TIMEOUT_SECONDS` | `30` | Browser navigation and action timeout in seconds. |
+| `BROWSER_WAIT_AFTER_LOAD_SECONDS` | `0` | Optional post-load browser wait before parsing. |
+| `BROWSER_WAIT_FOR_SELECTOR` | blank | Optional CSS selector to wait for in browser mode. |
+| `BROWSER_ACCEPT_COOKIES` | `false` | Try conservative cookie-accept buttons in browser mode. |
 | `TOP_LEADS_LIMIT` | `5` | Number of top leads to show in dashboard summaries. |
 | `OUTPUT_DIRECTORY` | `data/output` | Default generated-output directory. |
 | `LOG_LEVEL` | `INFO` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. |
@@ -154,6 +263,38 @@ LOG_FILE=logs/lead-intelligence.log
 ```
 
 Generated log files should not be committed.
+
+## Scraping Modes
+
+The application supports three scraping modes:
+
+- `static`: Requests plus Beautiful Soup only. This is the default because it is
+  faster, simpler, more resource-efficient, and usually sufficient for public
+  HTML pages.
+- `dynamic`: Chromium rendering with Playwright for JavaScript-rendered public
+  pages.
+- `auto`: Static first, then dynamic only when the static HTML appears
+  insufficient.
+
+Automatic fallback is conservative. It considers short visible text, missing
+title and main heading, or clear JavaScript-required phrases. It does not use
+the absence of email addresses or phone numbers as a fallback trigger.
+
+Install Playwright support with:
+
+```bash
+python -m pip install playwright
+python -m playwright install chromium
+```
+
+Cookie-dialog handling is intentionally limited. When `--accept-cookies` or
+`BROWSER_ACCEPT_COOKIES=true` is used, the browser scraper tries a small list of
+common accept-style button labels. It does not click arbitrary buttons or
+inject JavaScript to bypass consent systems.
+
+The tool does not bypass CAPTCHA, authentication, robots restrictions, access
+controls, anti-bot controls, or blocked HTTP responses. It does not use stealth
+plugins, proxies, or user-agent rotation.
 
 ## Retry And Pacing
 
@@ -268,10 +409,11 @@ Completed checkpoints:
 - Structured application logging
 - Controlled retry and request pacing
 - Professional command-line interface
+- Batch CSV organisation analysis
+- Targeted Playwright fallback for JavaScript-rendered pages
 
 Not implemented yet:
 
-- Dynamic website automation
 - External APIs or databases
 
 ## Planned Workflow
@@ -284,7 +426,7 @@ Not implemented yet:
 6. Clean and deduplicate the records.
 7. Calculate a transparent lead score.
 8. Export the results to Excel.
-9. Demonstrate dynamic website automation with Playwright.
+9. Review combined reports and failure CSVs for follow-up research.
 
 ## Technologies
 
@@ -295,13 +437,13 @@ Current:
 - Beautiful Soup
 - lxml
 - OpenPyXL
+- Playwright
 - Pytest
 - Git and GitHub
 
 Planned for later checkpoints:
 
 - Pandas
-- Playwright
 
 ## Project Structure
 

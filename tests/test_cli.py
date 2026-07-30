@@ -14,6 +14,7 @@ from src.lead_intelligence.cli import (
 )
 from src.lead_intelligence.config import AppConfig
 from src.lead_intelligence.crawler import CrawlFailure, CrawledWebsite
+from src.lead_intelligence.dynamic_scraper import DynamicScraperError
 from src.lead_intelligence.exporter import LeadRecord
 from src.lead_intelligence.scorer import LeadScore
 from src.lead_intelligence.signal_detector import (
@@ -324,6 +325,72 @@ def test_cli_overrides_configuration_correctly(
     assert crawl_kwargs["max_retries"] == 5
     assert crawl_kwargs["retry_backoff_seconds"] == 0.25
     assert calls["build_dashboard_summary"][1] == 2
+
+
+def test_analyse_browser_flags_are_forwarded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Analyse browser options should be forwarded to the crawler."""
+
+    calls = install_fake_analysis_pipeline(monkeypatch)
+
+    assert main(
+        analyse_args(
+            "--scrape-mode",
+            "dynamic",
+            "--headed",
+            "--browser-timeout",
+            "12",
+            "--wait-for-selector",
+            " main.ready ",
+            "--browser-wait",
+            "0.5",
+            "--accept-cookies",
+            "--no-export",
+        )
+    ) == 0
+
+    _crawl_args, crawl_kwargs = calls["crawl_website"]
+    dynamic_options = crawl_kwargs["dynamic_options"]
+
+    assert crawl_kwargs["scrape_mode"] == "dynamic"
+    assert dynamic_options.headless is False
+    assert dynamic_options.browser_timeout_seconds == 12
+    assert dynamic_options.wait_for_selector == "main.ready"
+    assert dynamic_options.wait_after_load_seconds == 0.5
+    assert dynamic_options.accept_cookies is True
+
+
+def test_analyse_default_scrape_mode_remains_static(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Analyse should keep static scraping as the default."""
+
+    calls = install_fake_analysis_pipeline(monkeypatch)
+
+    assert main(analyse_args("--no-export")) == 0
+
+    _crawl_args, crawl_kwargs = calls["crawl_website"]
+
+    assert crawl_kwargs["scrape_mode"] == "static"
+
+
+def test_dynamic_runtime_failure_returns_exit_code_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dynamic scraping failures that stop analysis should return 1."""
+
+    install_fake_analysis_pipeline(monkeypatch)
+
+    monkeypatch.setattr(
+        cli_module,
+        "crawl_website",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            DynamicScraperError("browser failed")
+        ),
+    )
+
+    assert main(analyse_args("--scrape-mode", "dynamic")) == 1
 
 
 def test_no_export_prevents_export_call(

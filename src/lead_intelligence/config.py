@@ -20,6 +20,13 @@ DEFAULT_TOP_LEADS_LIMIT = 5
 DEFAULT_OUTPUT_DIRECTORY = Path("data/output")
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_LOG_FILE: Path | None = None
+DEFAULT_SCRAPE_MODE = "static"
+DEFAULT_BROWSER_HEADLESS = True
+DEFAULT_BROWSER_TIMEOUT_SECONDS = 30.0
+DEFAULT_BROWSER_WAIT_AFTER_LOAD_SECONDS = 0.0
+DEFAULT_BROWSER_WAIT_FOR_SELECTOR: str | None = None
+DEFAULT_BROWSER_ACCEPT_COOKIES = False
+MAX_BROWSER_SELECTOR_LENGTH = 500
 
 VALID_LOG_LEVELS = {
     "DEBUG",
@@ -27,6 +34,23 @@ VALID_LOG_LEVELS = {
     "WARNING",
     "ERROR",
     "CRITICAL",
+}
+
+VALID_SCRAPE_MODES = {
+    "static",
+    "dynamic",
+    "auto",
+}
+
+BOOLEAN_VALUES = {
+    "true": True,
+    "1": True,
+    "yes": True,
+    "on": True,
+    "false": False,
+    "0": False,
+    "no": False,
+    "off": False,
 }
 
 
@@ -44,6 +68,14 @@ class AppConfig:
     output_directory: Path = DEFAULT_OUTPUT_DIRECTORY
     log_level: str = DEFAULT_LOG_LEVEL
     log_file: Path | None = DEFAULT_LOG_FILE
+    scrape_mode: str = DEFAULT_SCRAPE_MODE
+    browser_headless: bool = DEFAULT_BROWSER_HEADLESS
+    browser_timeout_seconds: float = DEFAULT_BROWSER_TIMEOUT_SECONDS
+    browser_wait_after_load_seconds: float = (
+        DEFAULT_BROWSER_WAIT_AFTER_LOAD_SECONDS
+    )
+    browser_wait_for_selector: str | None = DEFAULT_BROWSER_WAIT_FOR_SELECTOR
+    browser_accept_cookies: bool = DEFAULT_BROWSER_ACCEPT_COOKIES
 
 
 def parse_positive_float(
@@ -174,6 +206,64 @@ def normalise_log_level(value: str | None) -> str:
     return log_level
 
 
+def parse_bool(
+    value: str | None,
+    default: bool,
+    variable_name: str,
+) -> bool:
+    """Parse common environment-style boolean values."""
+
+    if value is None or not value.strip():
+        return default
+
+    normalized_value = value.strip().casefold()
+
+    if normalized_value not in BOOLEAN_VALUES:
+        raise ValueError(
+            f"{variable_name} must be one of: true, false, 1, 0, "
+            "yes, no, on, off."
+        )
+
+    return BOOLEAN_VALUES[normalized_value]
+
+
+def normalise_scrape_mode(value: str | None) -> str:
+    """Normalize and validate scrape mode configuration."""
+
+    if value is None or not value.strip():
+        return DEFAULT_SCRAPE_MODE
+
+    scrape_mode = value.strip().casefold()
+
+    if scrape_mode not in VALID_SCRAPE_MODES:
+        allowed_values = ", ".join(sorted(VALID_SCRAPE_MODES))
+        raise ValueError(
+            f"SCRAPE_MODE must be one of: {allowed_values}."
+        )
+
+    return scrape_mode
+
+
+def normalise_optional_selector(value: str | None) -> str | None:
+    """Normalize an optional CSS selector setting."""
+
+    if value is None:
+        return None
+
+    selector = value.strip()
+
+    if not selector:
+        return None
+
+    if len(selector) > MAX_BROWSER_SELECTOR_LENGTH:
+        raise ValueError(
+            "BROWSER_WAIT_FOR_SELECTOR must be "
+            f"{MAX_BROWSER_SELECTOR_LENGTH} characters or fewer."
+        )
+
+    return selector
+
+
 def load_config(
     environ: Mapping[str, str] | None = None,
 ) -> AppConfig:
@@ -252,6 +342,33 @@ def load_config(
             environment.get("LOG_LEVEL")
         ),
         log_file=log_file,
+        scrape_mode=normalise_scrape_mode(
+            environment.get("SCRAPE_MODE")
+        ),
+        browser_headless=parse_bool(
+            value=environment.get("BROWSER_HEADLESS"),
+            default=DEFAULT_BROWSER_HEADLESS,
+            variable_name="BROWSER_HEADLESS",
+        ),
+        browser_timeout_seconds=parse_positive_float(
+            value=environment.get("BROWSER_TIMEOUT_SECONDS"),
+            default=DEFAULT_BROWSER_TIMEOUT_SECONDS,
+            variable_name="BROWSER_TIMEOUT_SECONDS",
+        ),
+        browser_wait_after_load_seconds=parse_positive_float(
+            value=environment.get("BROWSER_WAIT_AFTER_LOAD_SECONDS"),
+            default=DEFAULT_BROWSER_WAIT_AFTER_LOAD_SECONDS,
+            variable_name="BROWSER_WAIT_AFTER_LOAD_SECONDS",
+            allow_zero=True,
+        ),
+        browser_wait_for_selector=normalise_optional_selector(
+            environment.get("BROWSER_WAIT_FOR_SELECTOR")
+        ),
+        browser_accept_cookies=parse_bool(
+            value=environment.get("BROWSER_ACCEPT_COOKIES"),
+            default=DEFAULT_BROWSER_ACCEPT_COOKIES,
+            variable_name="BROWSER_ACCEPT_COOKIES",
+        ),
     )
 
 
