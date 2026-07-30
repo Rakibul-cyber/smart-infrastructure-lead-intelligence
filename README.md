@@ -2,7 +2,7 @@
 
 A Python-based portfolio project for discovering, extracting, and analysing
 publicly available B2B and public-sector lead data. Later checkpoints may add
-cleaning and export workflows.
+cleaning and dynamic website automation workflows.
 
 ## Overview
 
@@ -26,6 +26,7 @@ reviewable lead data.
 - Transparent rule-based keyword matching with English and German terms.
 - Transparent lead scoring based on detected signals and public contact
   information.
+- Professional Excel reporting with lead tables, evidence, and run summaries.
 - Offline Pytest coverage using deterministic HTML fixtures.
 
 Business signal detection is intentionally simple and inspectable at this
@@ -54,6 +55,30 @@ Scores are capped at 100 and classified as:
 - Medium: 50-79
 - Low: 0-49
 
+## Excel Reporting
+
+The exporter creates an `.xlsx` workbook with four sheets:
+
+- All Leads: one row per analysed organisation.
+- High Priority: only leads with High priority, with headers even when empty.
+- Evidence: one row per transparent keyword evidence item.
+- Run Summary: aggregate counts, average score, and export timestamp.
+
+Generate the fictional demo workbook with:
+
+```bash
+python -m tests.manual_export_demo
+```
+
+The demo writes:
+
+```text
+data/output/lead_intelligence_report.xlsx
+```
+
+Generated files in `data/output/` are ignored by Git, except for the
+placeholder `.gitkeep`.
+
 ## Project Status
 
 Completed checkpoints:
@@ -62,10 +87,10 @@ Completed checkpoints:
 - Controlled multi-page crawler
 - Rule-based business signal detection
 - Transparent lead scoring
+- Professional Excel export
 
 Not implemented yet:
 
-- Excel or data export
 - Dynamic website automation
 - External APIs or databases
 
@@ -89,13 +114,13 @@ Current:
 - Requests
 - Beautiful Soup
 - lxml
+- OpenPyXL
 - Pytest
 - Git and GitHub
 
 Planned for later checkpoints:
 
 - Pandas
-- OpenPyXL
 - Playwright
 
 ## Project Structure

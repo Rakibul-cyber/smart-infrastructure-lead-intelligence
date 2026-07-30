@@ -6,6 +6,11 @@ from .crawler import (
     crawl_website,
     normalise_crawl_url,
 )
+from .exporter import (
+    LeadRecord,
+    build_lead_record,
+    export_leads_to_excel,
+)
 from .scorer import (
     LeadScore,
     ScoreBreakdownItem,
@@ -32,16 +37,19 @@ __all__ = [
     "CrawlFailure",
     "CrawledWebsite",
     "DetectedSignals",
+    "LeadRecord",
     "LeadScore",
     "ScrapedPage",
     "ScoreBreakdownItem",
     "SignalEvidence",
+    "build_lead_record",
     "build_score_summary",
     "classify_priority",
     "create_excerpt",
     "crawl_website",
     "detect_signals_from_pages",
     "detect_signals_in_text",
+    "export_leads_to_excel",
     "normalise_crawl_url",
     "normalise_text",
     "parse_page",

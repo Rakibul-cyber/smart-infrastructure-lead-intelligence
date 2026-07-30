@@ -219,14 +219,18 @@ def main() -> None:
 
     if not lead_score.breakdown:
         print("- None")
-        return
+    else:
+        for breakdown_item in lead_score.breakdown:
+            print(
+                f"+{breakdown_item.points} "
+                f"{format_criterion_name(breakdown_item.criterion)} — "
+                f"{breakdown_item.reason}"
+            )
 
-    for breakdown_item in lead_score.breakdown:
-        print(
-            f"+{breakdown_item.points} "
-            f"{format_criterion_name(breakdown_item.criterion)} — "
-            f"{breakdown_item.reason}"
-        )
+    print(
+        "\nRun `python -m tests.manual_export_demo` to generate the "
+        "fictional Excel demonstration."
+    )
 
 
 if __name__ == "__main__":
