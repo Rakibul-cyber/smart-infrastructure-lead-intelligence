@@ -51,27 +51,88 @@ logic explicit, inspectable, and suitable for human review.
 - Structured logging, retry handling, request pacing, environment
   configuration, Docker packaging, and CI checks.
 
-## Architecture Overview
+## Architecture
+
+                    User
+                      │
+                      ▼
+                  CLI Interface
+                      │
+                      ▼
+               Configuration
+                      │
+        ┌─────────────┴─────────────┐
+        ▼                           ▼
+ Single Organisation          Batch CSV
+        │                           │
+        └─────────────┬─────────────┘
+                      ▼
+               Scrape Strategy
+          ┌───────────┴───────────┐
+          ▼                       ▼
+ BeautifulSoup              Playwright
+          │                       │
+          └───────────┬───────────┘
+                      ▼
+            Multi-page Crawler
+                      ▼
+           Content Extraction
+                      ▼
+        Business Signal Detection
+                      ▼
+           Transparent Scoring
+                      ▼
+      ┌───────────────┼───────────────┐
+      ▼               ▼               ▼
+  CLI Output      Dashboard      Excel Report
+  
 
 ```mermaid
 flowchart TD
-    CLI[CLI] --> Config[Configuration]
-    Batch[Batch CSV input] --> CLI
-    Config --> Strategy[Scrape Strategy]
-    Strategy --> Static[Static Scraper: Requests + Beautiful Soup]
-    Strategy --> Dynamic[Dynamic Scraper: Playwright]
-    Static --> Crawler[Crawler]
+    User[User] --> CLI[CLI]
+    CLI --> Config[Configuration]
+    Config --> Input{Input}
+    Input --> Single[Single Organisation]
+    Input --> Batch[Batch CSV]
+    Single --> Strategy[Scrape Strategy]
+    Batch --> Strategy
+    Strategy --> Decision{Scraping Decision}
+    Decision --> Static[Static Scraper<br/>Requests + BeautifulSoup]
+    Decision --> Dynamic[Dynamic Scraper<br/>Playwright]
+    Static --> Crawler[Multi-page Crawler]
     Dynamic --> Crawler
-    Crawler --> Signals[Signal Detection]
-    Signals --> Scoring[Lead Scoring]
-    Scoring --> Export[Excel Export]
-    Scoring --> Dashboard[Management Dashboard]
+    Crawler --> Extraction[Content Extraction]
+    Extraction --> Signals[Business Signal Detection]
+    Signals --> Scoring[Transparent Lead Scoring]
+    Scoring --> Output{Output}
+    Output --> Excel[Excel Report]
+    Output --> Dashboard[Dashboard Summary]
+    Output --> CliOutput[CLI Output]
+
+    CrossCutting[Cross-cutting Services]
+    CrossCutting --> Logging[Logging]
+    CrossCutting --> Retry[Retry Logic]
+    CrossCutting --> Pacing[Request Pacing]
+    CrossCutting --> ConfigService[Configuration]
+    CrossCutting --> Docker[Docker]
+    CrossCutting --> Actions[GitHub Actions]
+
+    classDef input fill:#E8F3FF,stroke:#2F6FAE,color:#15395B
+    classDef processing fill:#F0F7EE,stroke:#4F8A47,color:#1F3D1C
+    classDef output fill:#FFF4E6,stroke:#C77D1A,color:#5B3405
+    classDef infrastructure fill:#F2ECFF,stroke:#7554B3,color:#33205F
+
+    class User,Input,Single,Batch input
+    class CLI,Config,Strategy,Decision,Static,Dynamic,Crawler,Extraction,Signals,Scoring processing
+    class Output,Excel,Dashboard,CliOutput output
+    class CrossCutting,Logging,Retry,Pacing,ConfigService,Docker,Actions infrastructure
 ```
 
-The application is organised as a CLI-first pipeline. Configuration is loaded
-once, the scrape strategy chooses static or dynamic page extraction, the
-crawler combines page-level results, and the downstream modules transform those
-results into signals, scores, Excel output, and dashboard summaries.
+The application follows a modular pipeline architecture where each stage has a
+single responsibility. This design makes the project easy to test, extend, and
+maintain.
+
+See [docs/architecture.md](docs/architecture.md) for component responsibilities.
 
 ## How The Pipeline Works
 
