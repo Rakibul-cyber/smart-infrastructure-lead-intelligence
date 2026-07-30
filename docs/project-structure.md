@@ -18,9 +18,18 @@ smart-infrastructure-lead-intelligence/
 │   └── output/
 ├── docs/
 │   ├── architecture.md
-│   └── project-structure.md
+│   ├── day-1-checklist.md
+│   ├── github-repository-settings.md
+│   ├── project-structure.md
+│   ├── release-checklist.md
+│   ├── releases/
+│   │   └── v0.1.0.md
+│   └── screenshots/
+│       ├── README.md
+│       └── dashboard.png
 ├── scripts/
-│   └── docker-smoke-test.sh
+│   ├── docker-smoke-test.sh
+│   └── prepare-screenshots.sh
 ├── src/
 │   └── lead_intelligence/
 │       ├── __init__.py
@@ -74,9 +83,9 @@ smart-infrastructure-lead-intelligence/
 | `tests/` | Deterministic unit and integration tests, including fixture-based HTML coverage and no public-network dependency for automated tests. |
 | `data/input/` | Contains the example organisation CSV used to show the expected batch input format. |
 | `data/output/` | Holds generated Excel reports and other local outputs; generated files are ignored by Git. |
-| `scripts/` | Contains operational helper scripts, currently the Docker smoke test. |
+| `scripts/` | Contains operational helper scripts for Docker smoke testing and screenshot preparation. |
 | `.github/` | Contains GitHub Actions CI and Dependabot configuration. |
-| `docs/` | Contains architecture and project documentation. |
+| `docs/` | Contains architecture, project-structure, screenshot, release, and repository metadata documentation. |
 
 ## Design Principles
 

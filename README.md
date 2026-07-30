@@ -53,40 +53,6 @@ logic explicit, inspectable, and suitable for human review.
 
 ## Architecture
 
-                    User
-                      │
-                      ▼
-                  CLI Interface
-                      │
-                      ▼
-               Configuration
-                      │
-        ┌─────────────┴─────────────┐
-        ▼                           ▼
- Single Organisation          Batch CSV
-        │                           │
-        └─────────────┬─────────────┘
-                      ▼
-               Scrape Strategy
-          ┌───────────┴───────────┐
-          ▼                       ▼
- BeautifulSoup              Playwright
-          │                       │
-          └───────────┬───────────┘
-                      ▼
-            Multi-page Crawler
-                      ▼
-           Content Extraction
-                      ▼
-        Business Signal Detection
-                      ▼
-           Transparent Scoring
-                      ▼
-      ┌───────────────┼───────────────┐
-      ▼               ▼               ▼
-  CLI Output      Dashboard      Excel Report
-  
-
 ```mermaid
 flowchart TD
     User[User] --> CLI[CLI]
@@ -164,44 +130,33 @@ See [docs/architecture.md](docs/architecture.md) for component responsibilities.
 
 ## Project Structure
 
-Important repository files and modules:
+Compact repository view:
 
 ```text
-src/lead_intelligence/
-├── cli.py              # Command-line interface and command handlers.
-├── batch.py            # CSV parsing, batch orchestration, and failure reports.
-├── crawler.py          # Controlled internal-page crawler and result aggregation.
-├── static_scraper.py   # Requests-based HTML fetching and parsing.
-├── dynamic_scraper.py  # Playwright-based browser rendering.
-├── scrape_strategy.py  # static, dynamic, and auto scrape-mode selection.
-├── signal_detector.py  # Rule-based keyword signals and evidence excerpts.
-├── scorer.py           # Transparent weighted lead scoring.
-├── exporter.py         # Excel workbook creation with openpyxl.
-├── dashboard.py        # Terminal management summary formatting.
-├── config.py           # Environment and .env configuration loading.
-├── logging_config.py   # Console and optional file logging setup.
-└── demo_data.py        # Fictional demo records for safe local and CI demos.
+smart-infrastructure-lead-intelligence/
+├── src/lead_intelligence/      # CLI, scraping, crawling, scoring, and export modules.
+├── tests/                      # Deterministic unit and integration tests.
+├── data/input/                 # Fictional example batch input CSV.
+├── docs/                       # Architecture, structure, screenshots, and release docs.
+├── scripts/                    # Docker and screenshot helper scripts.
+├── .github/                    # CI, Dependabot, and release-note metadata.
+├── Dockerfile                  # Runtime and test image definitions.
+├── docker-compose.yml          # Local CLI container orchestration.
+├── requirements.txt            # Python dependency pins.
+└── README.md                   # Project overview and usage guide.
 ```
 
-Other notable files:
-
-```text
-data/input/organisations.example.csv  # Fictional CSV input example.
-tests/                                # Unit and fixture-based test suite.
-Dockerfile                            # Runtime and test image definitions.
-docker-compose.yml                    # CLI service with mounted data folders.
-.github/workflows/ci.yml              # GitHub Actions CI workflow.
-.github/dependabot.yml                # Weekly dependency update checks.
-```
+See [docs/project-structure.md](docs/project-structure.md) for the full module
+responsibility guide.
 
 ## Screenshots
 
-Project screenshots are planned in the following order. The image files are not
-embedded yet so the README does not contain broken image references before the
-captures exist.
+Project screenshots are tracked or planned in the following order. The README
+links to the capture guide instead of embedding images, so incomplete captures
+do not create broken image references.
 
 - [ ] CLI analysis — `docs/screenshots/cli-analysis.png`
-- [ ] Management dashboard — `docs/screenshots/dashboard.png`
+- [x] Management dashboard — `docs/screenshots/dashboard.png`
 - [ ] Excel workbook — `docs/screenshots/excel-report.png`
 - [ ] GitHub Actions CI — `docs/screenshots/github-actions.png`
 - [ ] Docker demo — `docs/screenshots/docker-demo.png`

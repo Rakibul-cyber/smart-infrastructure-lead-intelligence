@@ -109,7 +109,7 @@ personal browser details in screenshots.
 ## Capture Checklist
 
 - [ ] `cli-analysis.png`
-- [ ] `dashboard.png`
+- [x] `dashboard.png`
 - [ ] `excel-report.png`
 - [ ] `github-actions.png`
 - [ ] `docker-demo.png`
