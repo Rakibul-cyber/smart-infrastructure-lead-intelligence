@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import deque
 from dataclasses import dataclass
 from urllib.parse import ParseResult, urlparse, urlunparse, urldefrag
@@ -9,6 +10,8 @@ import requests
 from .config import DEFAULT_REQUEST_TIMEOUT, DEFAULT_USER_AGENT
 from .static_scraper import ScrapedPage, normalise_domain, scrape_page
 
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class CrawlFailure:
@@ -91,6 +94,11 @@ def crawl_website(
 
     normalized_start_url = normalise_crawl_url(start_url)
     start_domain = normalise_domain(normalized_start_url)
+    logger.info(
+        "Crawl started: start_url=%s max_pages=%d",
+        normalized_start_url,
+        max_pages,
+    )
 
     queue: deque[str] = deque([normalized_start_url])
     queued_urls: set[str] = {normalized_start_url}
@@ -122,6 +130,11 @@ def crawl_website(
 
         except requests.RequestException as error:
             failed_url_set.add(current_url)
+            logger.warning(
+                "Page failed during crawl: %s error=%s",
+                current_url,
+                error,
+            )
             failed_pages.append(
                 CrawlFailure(
                     url=current_url,
@@ -133,23 +146,27 @@ def crawl_website(
         visited_url_set.add(current_url)
         visited_urls.append(current_url)
         page_results.append(page_result)
+        logger.info("Page successfully visited: %s", current_url)
 
         emails.update(page_result.emails)
         phone_numbers.update(page_result.phone_numbers)
-
-        internal_contact_links = [
-            link
-            for link in page_result.contact_links
-            if normalise_domain(link) == start_domain
-        ]
 
         contact_links.update(
             normalise_crawl_url(link)
             for link in page_result.contact_links
         )
+        logger.debug(
+            "Aggregated counts: visited=%d failed=%d emails=%d phones=%d "
+            "contact_links=%d",
+            len(visited_urls),
+            len(failed_pages),
+            len(emails),
+            len(phone_numbers),
+            len(contact_links),
+        )
 
         prioritized_links = [
-            *internal_contact_links,
+            *page_result.contact_links,
             *page_result.internal_links,
         ]
 
@@ -157,6 +174,7 @@ def crawl_website(
             normalized_link = normalise_crawl_url(link)
 
             if normalise_domain(normalized_link) != start_domain:
+                logger.debug("External URL skipped: %s", normalized_link)
                 continue
 
             if (
@@ -164,12 +182,18 @@ def crawl_website(
                 or normalized_link in visited_url_set
                 or normalized_link in failed_url_set
             ):
+                logger.debug("Duplicate URL skipped: %s", normalized_link)
                 continue
 
             queue.append(normalized_link)
             queued_urls.add(normalized_link)
+            logger.debug(
+                "URL queued: %s queue_size=%d",
+                normalized_link,
+                len(queue),
+            )
 
-    return CrawledWebsite(
+    result = CrawledWebsite(
         start_url=normalized_start_url,
         visited_urls=visited_urls,
         failed_pages=failed_pages,
@@ -178,3 +202,12 @@ def crawl_website(
         contact_links=sorted(contact_links),
         page_results=page_results,
     )
+
+    logger.info(
+        "Crawl completed: start_url=%s visited=%d failed=%d",
+        normalized_start_url,
+        len(result.visited_urls),
+        len(result.failed_pages),
+    )
+
+    return result

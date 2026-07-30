@@ -297,3 +297,38 @@ def test_crawler_legacy_call_without_config_still_works(
     result = crawl_website(BASE_URL, max_pages=1)
 
     assert result.visited_urls == [BASE_URL]
+
+
+def test_crawler_logs_page_failure_as_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Individual page failures should be logged as warnings."""
+
+    install_fake_scraper(monkeypatch)
+
+    with caplog.at_level("WARNING"):
+        crawl_website(BASE_URL, max_pages=4)
+
+    assert any(
+        record.levelname == "WARNING"
+        and "Page failed during crawl" in record.message
+        for record in caplog.records
+    )
+
+
+def test_crawler_logs_completion(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Crawler completion should be logged."""
+
+    install_fake_scraper(monkeypatch)
+
+    with caplog.at_level("INFO"):
+        crawl_website(BASE_URL, max_pages=1)
+
+    assert any(
+        "Crawl completed" in record.message
+        for record in caplog.records
+    )

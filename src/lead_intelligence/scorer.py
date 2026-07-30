@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from .signal_detector import DetectedSignals
 
+
+logger = logging.getLogger(__name__)
 
 SCORE_WEIGHTS: dict[str, int] = {
     "street_lighting": 25,
@@ -195,6 +198,15 @@ def score_lead(
         total_score=total_score,
         priority=priority,
         active_criteria=active_criteria,
+    )
+    logger.debug(
+        "Lead score calculated: criteria=%s total_score=%d priority=%s",
+        [
+            item.criterion
+            for item in breakdown
+        ],
+        total_score,
+        priority,
     )
 
     return LeadScore(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlparse, urldefrag
@@ -9,6 +10,8 @@ from bs4 import BeautifulSoup
 
 from .config import DEFAULT_REQUEST_TIMEOUT, DEFAULT_USER_AGENT
 
+
+logger = logging.getLogger(__name__)
 
 EMAIL_PATTERN = re.compile(
     r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
@@ -65,6 +68,8 @@ def download_page(
             If the request fails or returns an unsuccessful HTTP status.
     """
 
+    logger.debug("Preparing request for %s", url)
+
     headers = {
         "User-Agent": user_agent
     }
@@ -76,6 +81,7 @@ def download_page(
     )
 
     response.raise_for_status()
+    logger.info("Page downloaded successfully: %s", url)
 
     return response.text
 
@@ -290,6 +296,7 @@ def parse_page(
     Parse webpage HTML and return structured information.
     """
 
+    logger.debug("Parsing page: %s", url)
     soup = BeautifulSoup(html, "lxml")
 
     title = ""
@@ -327,7 +334,7 @@ def parse_page(
         visible_text=visible_text,
     )
 
-    return ScrapedPage(
+    scraped_page = ScrapedPage(
         url=url,
         title=title,
         main_heading=main_heading,
@@ -338,6 +345,19 @@ def parse_page(
         internal_links=internal_links,
         contact_links=contact_links,
     )
+
+    logger.debug(
+        "Extracted counts for %s: emails=%d phones=%d absolute_links=%d "
+        "internal_links=%d contact_links=%d",
+        url,
+        len(scraped_page.emails),
+        len(scraped_page.phone_numbers),
+        len(scraped_page.absolute_links),
+        len(scraped_page.internal_links),
+        len(scraped_page.contact_links),
+    )
+
+    return scraped_page
 
 
 def scrape_page(

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import os
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
 
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_REQUEST_TIMEOUT = 20.0
 DEFAULT_REQUEST_DELAY_SECONDS = 1.0
@@ -14,6 +17,7 @@ DEFAULT_USER_AGENT = "SmartInfrastructureLeadIntelligence/0.1"
 DEFAULT_TOP_LEADS_LIMIT = 5
 DEFAULT_OUTPUT_DIRECTORY = Path("data/output")
 DEFAULT_LOG_LEVEL = "INFO"
+DEFAULT_LOG_FILE: Path | None = None
 
 VALID_LOG_LEVELS = {
     "DEBUG",
@@ -35,6 +39,7 @@ class AppConfig:
     top_leads_limit: int = DEFAULT_TOP_LEADS_LIMIT
     output_directory: Path = DEFAULT_OUTPUT_DIRECTORY
     log_level: str = DEFAULT_LOG_LEVEL
+    log_file: Path | None = DEFAULT_LOG_FILE
 
 
 def parse_positive_float(
@@ -164,6 +169,14 @@ def load_config(
     if not output_directory_value:
         output_directory_value = str(DEFAULT_OUTPUT_DIRECTORY)
 
+    log_file_value = environment.get(
+        "LOG_FILE",
+        "",
+    ).strip()
+    log_file = Path(log_file_value) if log_file_value else None
+
+    logger.debug("Loading application configuration")
+
     return AppConfig(
         request_timeout=parse_positive_float(
             value=environment.get("REQUEST_TIMEOUT"),
@@ -191,6 +204,7 @@ def load_config(
         log_level=normalise_log_level(
             environment.get("LOG_LEVEL")
         ),
+        log_file=log_file,
     )
 
 

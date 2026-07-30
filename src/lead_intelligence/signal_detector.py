@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 
 from .static_scraper import ScrapedPage
 
+
+logger = logging.getLogger(__name__)
 
 SIGNAL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "street_lighting": (
@@ -243,11 +246,26 @@ def detect_signals_in_text(
                 )
             )
 
-    return _build_detected_signals(
+    detected_signals = _build_detected_signals(
         category_matches=category_matches,
         matched_keywords=matched_keywords,
         evidence=evidence,
     )
+    detected_categories = [
+        category
+        for category in SIGNAL_KEYWORDS
+        if getattr(detected_signals, category)
+    ]
+    logger.debug(
+        "Signals detected in text: source_url=%s matched_keywords=%d "
+        "evidence_items=%d categories=%s",
+        source_url,
+        len(detected_signals.matched_keywords),
+        len(detected_signals.evidence),
+        detected_categories,
+    )
+
+    return detected_signals
 
 
 def detect_signals_from_pages(
@@ -267,6 +285,8 @@ def detect_signals_from_pages(
     matched_keywords: set[str] = set()
     evidence: list[SignalEvidence] = []
     seen_evidence_keys: set[tuple[str, str, str]] = set()
+
+    logger.debug("Analysing pages for signals: pages=%d", len(page_results))
 
     for page_result in page_results:
         page_signals = detect_signals_in_text(
@@ -293,11 +313,26 @@ def detect_signals_from_pages(
             seen_evidence_keys.add(evidence_key)
             evidence.append(evidence_item)
 
-    return _build_detected_signals(
+    detected_signals = _build_detected_signals(
         category_matches=category_matches,
         matched_keywords=matched_keywords,
         evidence=evidence,
     )
+    detected_categories = [
+        category
+        for category in SIGNAL_KEYWORDS
+        if getattr(detected_signals, category)
+    ]
+    logger.debug(
+        "Combined signal detection complete: pages=%d matched_keywords=%d "
+        "evidence_items=%d categories=%s",
+        len(page_results),
+        len(detected_signals.matched_keywords),
+        len(detected_signals.evidence),
+        detected_categories,
+    )
+
+    return detected_signals
 
 
 def _build_detected_signals(

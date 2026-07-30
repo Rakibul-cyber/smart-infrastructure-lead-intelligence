@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from .exporter import LeadRecord
 
+
+logger = logging.getLogger(__name__)
 
 SIGNAL_FIELDS: tuple[tuple[str, str], ...] = (
     ("Street lighting", "street_lighting"),
@@ -73,7 +76,7 @@ def build_dashboard_summary(
         for record in records
     ]
 
-    return DashboardSummary(
+    summary = DashboardSummary(
         total_leads=len(records),
         high_priority_leads=_count_priority(records, "High"),
         medium_priority_leads=_count_priority(records, "Medium"),
@@ -102,6 +105,17 @@ def build_dashboard_summary(
         ),
         signal_counts=_build_signal_counts(records),
     )
+    logger.debug(
+        "Dashboard summary calculated: total_leads=%d high=%d medium=%d "
+        "low=%d average_score=%.2f",
+        summary.total_leads,
+        summary.high_priority_leads,
+        summary.medium_priority_leads,
+        summary.low_priority_leads,
+        summary.average_lead_score,
+    )
+
+    return summary
 
 
 def format_dashboard(

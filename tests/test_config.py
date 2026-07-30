@@ -35,6 +35,7 @@ def test_supplied_mapping_overrides_defaults() -> None:
             "TOP_LEADS_LIMIT": "7",
             "OUTPUT_DIRECTORY": "tmp/output",
             "LOG_LEVEL": "debug",
+            "LOG_FILE": "logs/app.log",
         }
     )
 
@@ -45,6 +46,7 @@ def test_supplied_mapping_overrides_defaults() -> None:
     assert config.top_leads_limit == 7
     assert config.output_directory == Path("tmp/output")
     assert config.log_level == "DEBUG"
+    assert config.log_file == Path("logs/app.log")
 
 
 def test_blank_values_use_defaults() -> None:
@@ -59,6 +61,7 @@ def test_blank_values_use_defaults() -> None:
             "TOP_LEADS_LIMIT": "",
             "OUTPUT_DIRECTORY": " ",
             "LOG_LEVEL": " ",
+            "LOG_FILE": " ",
         }
     )
 
@@ -308,3 +311,59 @@ def test_new_app_config_is_returned_each_time() -> None:
 
     assert first_config == second_config
     assert first_config is not second_config
+
+
+def test_default_log_file_is_none() -> None:
+    """LOG_FILE should default to None."""
+
+    assert load_config({}).log_file is None
+
+
+def test_blank_log_file_produces_none() -> None:
+    """Blank LOG_FILE values should produce None."""
+
+    assert load_config({"LOG_FILE": " "}).log_file is None
+
+
+def test_configured_log_file_becomes_path() -> None:
+    """LOG_FILE should become a pathlib.Path when configured."""
+
+    config = load_config({"LOG_FILE": "logs/app.log"})
+
+    assert config.log_file == Path("logs/app.log")
+
+
+def test_env_file_log_file_works(tmp_path: Path) -> None:
+    """LOG_FILE should load from an env file."""
+
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "LOG_FILE=logs/file.log\n",
+        encoding="utf-8",
+    )
+
+    config = load_config_with_env_file(
+        path=env_path,
+        environ={},
+    )
+
+    assert config.log_file == Path("logs/file.log")
+
+
+def test_explicit_environment_log_file_overrides_file_value(
+    tmp_path: Path,
+) -> None:
+    """Explicit LOG_FILE should override an env-file LOG_FILE."""
+
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "LOG_FILE=logs/file.log\n",
+        encoding="utf-8",
+    )
+
+    config = load_config_with_env_file(
+        path=env_path,
+        environ={"LOG_FILE": "logs/runtime.log"},
+    )
+
+    assert config.log_file == Path("logs/runtime.log")

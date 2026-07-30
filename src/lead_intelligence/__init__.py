@@ -27,6 +27,7 @@ from .exporter import (
     build_lead_record,
     export_leads_to_excel,
 )
+from .logging_config import configure_logging
 from .scorer import (
     LeadScore,
     ScoreBreakdownItem,
@@ -65,6 +66,7 @@ __all__ = [
     "build_lead_record",
     "build_score_summary",
     "classify_priority",
+    "configure_logging",
     "create_excerpt",
     "crawl_website",
     "detect_signals_from_pages",

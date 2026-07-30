@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import logging
 import sys
 
 import requests
 
 from .config import load_config_with_env_file
 from .crawler import crawl_website
+from .logging_config import configure_logging
 from .scorer import score_lead
 from .signal_detector import detect_signals_from_pages
 from .static_scraper import scrape_page
+
+
+logger = logging.getLogger(__name__)
 
 
 def print_list(
@@ -71,6 +76,12 @@ def main() -> None:
         print(f"Configuration error: {error}")
         sys.exit(2)
 
+    configure_logging(
+        log_level=config.log_level,
+        log_file=config.log_file,
+    )
+    logger.info("Application started")
+
     target_url = "https://example.com"
 
     print("=" * 70)
@@ -92,6 +103,7 @@ def main() -> None:
         )
 
     except requests.RequestException as error:
+        logger.warning("Static scraper demonstration failed: %s", error)
         print(f"\nScraping failed: {error}")
     else:
         print("\nScraping completed successfully.")
@@ -144,6 +156,7 @@ def main() -> None:
         )
 
     except requests.RequestException as error:
+        logger.error("Crawler demonstration failed: %s", error)
         print(f"\nCrawling failed: {error}")
         return
 
@@ -256,6 +269,7 @@ def main() -> None:
         "Run `python -m tests.manual_dashboard_demo` to view the "
         "fictional management dashboard."
     )
+    logger.info("Application finished")
 
 
 if __name__ == "__main__":

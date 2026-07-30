@@ -39,4 +39,5 @@ screenshots/*
 htmlcov/
 
 # Log files
+logs/
 *.log

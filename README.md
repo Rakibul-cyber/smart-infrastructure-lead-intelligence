@@ -31,6 +31,7 @@ reviewable lead data.
   results.
 - Central application configuration with environment-variable and optional
   `.env` file support.
+- Structured console logging with optional UTF-8 file logging.
 - Offline Pytest coverage using deterministic HTML fixtures.
 
 Business signal detection is intentionally simple and inspectable at this
@@ -61,7 +62,8 @@ Supported variables:
 | `USER_AGENT` | `SmartInfrastructureLeadIntelligence/0.1` | HTTP User-Agent string. |
 | `TOP_LEADS_LIMIT` | `5` | Number of top leads to show in dashboard summaries. |
 | `OUTPUT_DIRECTORY` | `data/output` | Default generated-output directory. |
-| `LOG_LEVEL` | `INFO` | Reserved logging level setting for later use. |
+| `LOG_LEVEL` | `INFO` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. |
+| `LOG_FILE` | blank | Optional path for a UTF-8 application log file. |
 
 Precedence is:
 
@@ -71,6 +73,15 @@ Precedence is:
 
 The `.env` file remains ignored by Git. Do not store secrets or real
 credentials in this project.
+
+Console logging is enabled by default. File logging is optional:
+
+```text
+LOG_LEVEL=DEBUG
+LOG_FILE=logs/lead-intelligence.log
+```
+
+Generated log files should not be committed.
 
 ## Lead Scoring
 
@@ -149,6 +160,7 @@ Completed checkpoints:
 - Professional Excel export
 - Management dashboard summary
 - Central application configuration
+- Structured application logging
 
 Not implemented yet:
 

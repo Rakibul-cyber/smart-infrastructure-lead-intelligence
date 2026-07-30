@@ -706,3 +706,24 @@ def test_auto_filter_is_configured(tmp_path: Path) -> None:
     assert workbook["Evidence"].auto_filter.ref == "A1:F1"
 
     workbook.close()
+
+
+def test_exporter_logs_successful_save(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Successful workbook saves should be logged."""
+
+    with caplog.at_level("INFO"):
+        export_leads_to_excel(
+            records=[make_record()],
+            evidence_by_website={
+                "https://example-city.de": []
+            },
+            output_path=tmp_path / "leads.xlsx",
+        )
+
+    assert any(
+        "Workbook saved successfully" in record.message
+        for record in caplog.records
+    )

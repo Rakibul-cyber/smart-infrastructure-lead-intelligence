@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,8 @@ from .crawler import CrawledWebsite
 from .scorer import LeadScore
 from .signal_detector import DetectedSignals, SignalEvidence
 
+
+logger = logging.getLogger(__name__)
 
 LEAD_HEADERS = [
     "Organisation Name",
@@ -164,6 +167,17 @@ def export_leads_to_excel(
         raise ValueError("records must not be empty")
 
     path = Path(output_path).expanduser()
+    evidence_count = sum(
+        len(evidence_items)
+        for evidence_items in evidence_by_website.values()
+    )
+    logger.info("Excel export started")
+    logger.debug(
+        "Excel export details: records=%d evidence_items=%d output_path=%s",
+        len(records),
+        evidence_count,
+        path,
+    )
     path.parent.mkdir(
         parents=True,
         exist_ok=True,
@@ -211,6 +225,8 @@ def export_leads_to_excel(
 
     workbook.save(path)
     workbook.close()
+    logger.info("Workbook saved successfully: %s", path)
+    logger.debug("Workbook sheets: %s", workbook.sheetnames)
 
     # Verify the workbook can be reopened after saving.
     loaded_workbook = load_workbook(path)
