@@ -437,7 +437,7 @@ Docker notes:
 
 ## Testing
 
-The current local test result is `320 passed, 1 skipped`, verified with:
+The current local test result is `325 passed, 1 skipped`, verified with:
 
 ```bash
 .venv/bin/python -m pytest -q
@@ -479,6 +479,18 @@ public organisations.
 
 Dependabot is configured for weekly checks of Python, GitHub Actions, and
 Docker dependencies.
+
+## Release
+
+Current package version: `0.1.0`.
+
+Release documentation:
+
+- [Changelog](CHANGELOG.md)
+- [Release notes for v0.1.0](docs/releases/v0.1.0.md)
+
+No GitHub release is claimed here; publish one only after the release checklist
+and CI status have been reviewed.
 
 ## Ethical And Responsible Use
 
