@@ -203,6 +203,10 @@ def analyse_organisation(
         request_delay_seconds=config.request_delay_seconds,
         scrape_mode=config.scrape_mode,
         dynamic_options=build_dynamic_options_from_config(config),
+        business_link_priority_enabled=(
+            config.business_link_priority_enabled
+        ),
+        general_links_enabled=config.general_links_enabled,
     )
 
     if not crawler_result.page_results:

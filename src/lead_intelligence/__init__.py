@@ -60,6 +60,12 @@ from .exporter import (
     export_leads_to_excel,
 )
 from .logging_config import configure_logging
+from .link_prioritiser import (
+    LinkPriority,
+    normalise_link_text,
+    prioritise_links,
+    score_link,
+)
 from .scorer import (
     LeadScore,
     ScoreBreakdownItem,
@@ -81,6 +87,7 @@ from .signal_detector import (
     normalise_text,
 )
 from .static_scraper import (
+    DiscoveredLink,
     ScrapedPage,
     calculate_retry_delay,
     is_retryable_exception,
@@ -98,11 +105,13 @@ __all__ = [
     "CrawledWebsite",
     "DashboardSummary",
     "DetectedSignals",
+    "DiscoveredLink",
     "DynamicPageOptions",
     "DynamicScrapeResult",
     "DynamicScraperError",
     "LeadRecord",
     "LeadScore",
+    "LinkPriority",
     "OrganisationInput",
     "ParsedOrganisationRow",
     "ScrapedPage",
@@ -131,6 +140,7 @@ __all__ = [
     "load_config_with_env_file",
     "load_env_file",
     "normalise_crawl_url",
+    "normalise_link_text",
     "normalise_column_name",
     "normalise_log_level",
     "normalise_scrape_mode",
@@ -142,6 +152,7 @@ __all__ = [
     "parse_positive_int",
     "print_dashboard",
     "print_demo_dashboard",
+    "prioritise_links",
     "read_organisations_csv",
     "read_parsed_organisations_csv",
     "run_demo_export",
@@ -149,6 +160,7 @@ __all__ = [
     "scrape_dynamic_page",
     "scrape_with_strategy",
     "score_lead",
+    "score_link",
     "scrape_page",
     "seconds_to_milliseconds",
     "static_page_appears_insufficient",

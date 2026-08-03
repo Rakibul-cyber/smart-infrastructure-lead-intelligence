@@ -26,6 +26,8 @@ DEFAULT_BROWSER_TIMEOUT_SECONDS = 30.0
 DEFAULT_BROWSER_WAIT_AFTER_LOAD_SECONDS = 0.0
 DEFAULT_BROWSER_WAIT_FOR_SELECTOR: str | None = None
 DEFAULT_BROWSER_ACCEPT_COOKIES = False
+DEFAULT_BUSINESS_LINK_PRIORITY_ENABLED = True
+DEFAULT_GENERAL_LINKS_ENABLED = True
 MAX_BROWSER_SELECTOR_LENGTH = 500
 
 VALID_LOG_LEVELS = {
@@ -76,6 +78,10 @@ class AppConfig:
     )
     browser_wait_for_selector: str | None = DEFAULT_BROWSER_WAIT_FOR_SELECTOR
     browser_accept_cookies: bool = DEFAULT_BROWSER_ACCEPT_COOKIES
+    business_link_priority_enabled: bool = (
+        DEFAULT_BUSINESS_LINK_PRIORITY_ENABLED
+    )
+    general_links_enabled: bool = DEFAULT_GENERAL_LINKS_ENABLED
 
 
 def parse_positive_float(
@@ -368,6 +374,16 @@ def load_config(
             value=environment.get("BROWSER_ACCEPT_COOKIES"),
             default=DEFAULT_BROWSER_ACCEPT_COOKIES,
             variable_name="BROWSER_ACCEPT_COOKIES",
+        ),
+        business_link_priority_enabled=parse_bool(
+            value=environment.get("BUSINESS_LINK_PRIORITY_ENABLED"),
+            default=DEFAULT_BUSINESS_LINK_PRIORITY_ENABLED,
+            variable_name="BUSINESS_LINK_PRIORITY_ENABLED",
+        ),
+        general_links_enabled=parse_bool(
+            value=environment.get("GENERAL_LINKS_ENABLED"),
+            default=DEFAULT_GENERAL_LINKS_ENABLED,
+            variable_name="GENERAL_LINKS_ENABLED",
         ),
     )
 

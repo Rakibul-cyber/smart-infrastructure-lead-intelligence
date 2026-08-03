@@ -178,6 +178,7 @@ def build_parser() -> argparse.ArgumentParser:
     analyse_parser.add_argument("--retry-backoff", type=non_negative_float)
     analyse_parser.add_argument("--top-limit", type=positive_int)
     add_browser_arguments(analyse_parser)
+    add_priority_arguments(analyse_parser)
     analyse_parser.add_argument(
         "--no-export",
         action="store_true",
@@ -204,6 +205,7 @@ def build_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument("--max-retries", type=non_negative_int)
     batch_parser.add_argument("--retry-backoff", type=non_negative_float)
     add_browser_arguments(batch_parser)
+    add_priority_arguments(batch_parser)
     batch_parser.add_argument(
         "--no-export",
         action="store_true",
@@ -259,6 +261,21 @@ def add_browser_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def add_priority_arguments(parser: argparse.ArgumentParser) -> None:
+    """Add shared crawl-prioritisation arguments."""
+
+    parser.add_argument(
+        "--disable-business-priority",
+        action="store_true",
+        help="Use the legacy contact-first crawler queue order.",
+    )
+    parser.add_argument(
+        "--business-links-only",
+        action="store_true",
+        help="Queue only business-relevant and contact links.",
+    )
+
+
 def apply_overrides(
     config: AppConfig,
     args: argparse.Namespace,
@@ -305,6 +322,12 @@ def apply_overrides(
     if getattr(args, "accept_cookies", False):
         replacements["browser_accept_cookies"] = True
 
+    if getattr(args, "disable_business_priority", False):
+        replacements["business_link_priority_enabled"] = False
+
+    if getattr(args, "business_links_only", False):
+        replacements["general_links_enabled"] = False
+
     if not replacements:
         return config
 
@@ -328,6 +351,7 @@ def handle_analyse(args: argparse.Namespace) -> int:
     )
     logger.info("CLI analyse command started")
     print(f"Scraping mode: {config.scrape_mode}")
+    print(f"Crawler priority mode: {format_priority_mode(config)}")
 
     try:
         crawler_result = crawl_website(
@@ -340,6 +364,10 @@ def handle_analyse(args: argparse.Namespace) -> int:
             request_delay_seconds=config.request_delay_seconds,
             scrape_mode=config.scrape_mode,
             dynamic_options=build_dynamic_options_from_config(config),
+            business_link_priority_enabled=(
+                config.business_link_priority_enabled
+            ),
+            general_links_enabled=config.general_links_enabled,
         )
 
     except (requests.RequestException, DynamicScraperError) as error:
@@ -421,6 +449,7 @@ def handle_batch(args: argparse.Namespace) -> int:
     )
     logger.info("CLI batch command started")
     print(f"Scraping mode: {config.scrape_mode}")
+    print(f"Crawler priority mode: {format_priority_mode(config)}")
 
     timestamp = datetime.now().astimezone()
 
@@ -507,6 +536,18 @@ def print_analysis_summary(
     print(f"Score: {lead_score.total_score}/100")
     print(f"Priority: {lead_score.priority}")
     print(f"Score summary: {lead_score.summary}")
+
+
+def format_priority_mode(config: AppConfig) -> str:
+    """Return a concise user-facing crawl priority mode."""
+
+    if not config.business_link_priority_enabled:
+        return "legacy contact-first"
+
+    if not config.general_links_enabled:
+        return "business-aware, business and contact links only"
+
+    return "business-aware, business before contact before general"
 
 
 def build_default_output_path(

@@ -17,8 +17,18 @@ from .config import (
     DEFAULT_USER_AGENT,
 )
 from .dynamic_scraper import DynamicPageOptions, DynamicScraperError
+from .link_prioritiser import (
+    CONTACT_SCORE,
+    GENERAL_SCORE,
+    LinkPriority,
+    prioritise_links,
+)
 from .scrape_strategy import ScrapeDecision, ScrapeMode, scrape_with_strategy
-from .static_scraper import ScrapedPage, normalise_domain, scrape_page
+from .static_scraper import (
+    ScrapedPage,
+    normalise_domain,
+    scrape_page,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -111,6 +121,8 @@ def crawl_website(
     scrape_strategy_function: Callable[..., ScrapeDecision] = (
         default_scrape_strategy
     ),
+    business_link_priority_enabled: bool = True,
+    general_links_enabled: bool = True,
 ) -> CrawledWebsite:
     """
     Crawl a small number of internal pages and combine public contact data.
@@ -224,13 +236,21 @@ def crawl_website(
             len(contact_links),
         )
 
-        prioritized_links = [
-            *page_result.contact_links,
-            *page_result.internal_links,
-        ]
+        prioritized_links = build_prioritized_crawl_candidates(
+            page_result=page_result,
+            business_link_priority_enabled=business_link_priority_enabled,
+            general_links_enabled=general_links_enabled,
+        )
 
-        for link in prioritized_links:
-            normalized_link = normalise_crawl_url(link)
+        for priority in prioritized_links:
+            normalized_link = normalise_crawl_url(priority.url)
+
+            logger.debug(
+                "URL priority evaluated: url=%s category=%s score=%d",
+                normalized_link,
+                priority.category,
+                priority.score,
+            )
 
             if normalise_domain(normalized_link) != start_domain:
                 logger.debug("External URL skipped: %s", normalized_link)
@@ -247,9 +267,11 @@ def crawl_website(
             queue.append(normalized_link)
             queued_urls.add(normalized_link)
             logger.debug(
-                "URL queued: %s queue_size=%d",
+                "URL queued: %s queue_size=%d category=%s score=%d",
                 normalized_link,
                 len(queue),
+                priority.category,
+                priority.score,
             )
 
     result = CrawledWebsite(
@@ -270,3 +292,55 @@ def crawl_website(
     )
 
     return result
+
+
+def build_prioritized_crawl_candidates(
+    page_result: ScrapedPage,
+    *,
+    business_link_priority_enabled: bool,
+    general_links_enabled: bool,
+) -> list[LinkPriority]:
+    """Build page-local crawl candidates in the configured queue order."""
+
+    if not business_link_priority_enabled:
+        return [
+            LinkPriority(
+                url=link,
+                score=CONTACT_SCORE if link in page_result.contact_links
+                else GENERAL_SCORE,
+                matched_terms=(),
+                category="contact" if link in page_result.contact_links
+                else "general",
+            )
+            for link in [
+                *page_result.contact_links,
+                *page_result.internal_links,
+            ]
+        ]
+
+    discovered_links = _links_with_anchor_text(page_result)
+    prioritized_links = prioritise_links(discovered_links)
+
+    if general_links_enabled:
+        return prioritized_links
+
+    return [
+        priority
+        for priority in prioritized_links
+        if priority.category in {"business", "contact"}
+    ]
+
+
+def _links_with_anchor_text(
+    page_result: ScrapedPage,
+) -> list[tuple[str, str]]:
+    if page_result.discovered_internal_links:
+        return [
+            (link.url, link.anchor_text)
+            for link in page_result.discovered_internal_links
+        ]
+
+    return [
+        (link, "")
+        for link in page_result.internal_links
+    ]

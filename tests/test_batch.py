@@ -613,6 +613,8 @@ def test_analyse_organisation_maps_pipeline_correctly() -> None:
     assert crawl_kwargs["request_delay_seconds"] == 0
     assert crawl_kwargs["max_retries"] == 4
     assert crawl_kwargs["retry_backoff_seconds"] == 0.5
+    assert crawl_kwargs["business_link_priority_enabled"] is True
+    assert crawl_kwargs["general_links_enabled"] is True
     assert record.organisation_name == "Example City"
     assert record.visited_pages == 1
     assert evidence

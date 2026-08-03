@@ -4,7 +4,7 @@ import logging
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlparse, urldefrag
 
 import requests
@@ -51,6 +51,14 @@ RETRYABLE_STATUS_CODES = {
 
 
 @dataclass
+class DiscoveredLink:
+    """Internal link with the anchor text that exposed it."""
+
+    url: str
+    anchor_text: str
+
+
+@dataclass
 class ScrapedPage:
     """Structured information collected from one webpage."""
 
@@ -63,6 +71,9 @@ class ScrapedPage:
     absolute_links: list[str]
     internal_links: list[str]
     contact_links: list[str]
+    discovered_internal_links: list[DiscoveredLink] = field(
+        default_factory=list
+    )
 
 
 def is_retryable_exception(
@@ -372,11 +383,30 @@ def extract_links(
         same domain, and contact-related links.
     """
 
+    absolute_links, internal_links, contact_links, _discovered = (
+        extract_link_details(
+            soup=soup,
+            base_url=base_url,
+        )
+    )
+
+    return absolute_links, internal_links, contact_links
+
+
+def extract_link_details(
+    soup: BeautifulSoup,
+    base_url: str,
+) -> tuple[list[str], list[str], list[str], list[DiscoveredLink]]:
+    """
+    Extract links and preserve internal-link anchor text for prioritisation.
+    """
+
     base_domain = normalise_domain(base_url)
 
     absolute_links: set[str] = set()
     internal_links: set[str] = set()
     contact_links: set[str] = set()
+    discovered_internal_links: list[DiscoveredLink] = []
 
     for anchor in soup.find_all("a", href=True):
         href = anchor.get("href")
@@ -397,10 +427,10 @@ def extract_links(
         anchor_text = anchor.get_text(
             " ",
             strip=True,
-        ).casefold()
+        )
 
         searchable_value = (
-            f"{anchor_text} {absolute_url.casefold()}"
+            f"{anchor_text.casefold()} {absolute_url.casefold()}"
         )
 
         if any(
@@ -413,11 +443,18 @@ def extract_links(
             continue
 
         internal_links.add(absolute_url)
+        discovered_internal_links.append(
+            DiscoveredLink(
+                url=absolute_url,
+                anchor_text=anchor_text,
+            )
+        )
 
     return (
         sorted(absolute_links),
         sorted(internal_links),
         sorted(contact_links),
+        discovered_internal_links,
     )
 
 
@@ -450,7 +487,12 @@ def parse_page(
             strip=True,
         )
 
-    absolute_links, internal_links, contact_links = extract_links(
+    (
+        absolute_links,
+        internal_links,
+        contact_links,
+        discovered_internal_links,
+    ) = extract_link_details(
         soup=soup,
         base_url=url,
     )
@@ -477,6 +519,7 @@ def parse_page(
         absolute_links=absolute_links,
         internal_links=internal_links,
         contact_links=contact_links,
+        discovered_internal_links=discovered_internal_links,
     )
 
     logger.debug(

@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 
 import src.lead_intelligence.static_scraper as static_scraper_module
 from src.lead_intelligence.static_scraper import (
+    DiscoveredLink,
     calculate_retry_delay,
     clean_link,
     download_page,
@@ -218,6 +219,58 @@ def test_parse_page_returns_complete_result() -> None:
     assert len(result.absolute_links) == 5
     assert len(result.internal_links) == 4
     assert len(result.contact_links) == 4
+    assert result.discovered_internal_links == [
+        DiscoveredLink(
+            url="https://example-city.de/infrastructure",
+            anchor_text="Infrastructure Department",
+        ),
+        DiscoveredLink(
+            url="https://example-city.de/team",
+            anchor_text="Team",
+        ),
+        DiscoveredLink(
+            url="https://example-city.de/kontakt",
+            anchor_text="Kontakt",
+        ),
+        DiscoveredLink(
+            url="https://www.example-city.de/impressum",
+            anchor_text="Impressum",
+        ),
+    ]
+
+
+def test_parse_page_preserves_anchor_text_for_internal_links() -> None:
+    """ScrapedPage should preserve internal anchor text for prioritisation."""
+
+    result = parse_page(
+        url=BASE_URL,
+        html=(
+            "<html><body>"
+            "<a href='/smart-city'>Smart City programme</a>"
+            "<a href='/kontakt'>Kontakt</a>"
+            "<a href='https://external.example/contact'>External</a>"
+            "</body></html>"
+        ),
+    )
+
+    assert result.internal_links == [
+        "https://example-city.de/kontakt",
+        "https://example-city.de/smart-city",
+    ]
+    assert result.contact_links == [
+        "https://example-city.de/kontakt",
+        "https://external.example/contact",
+    ]
+    assert result.discovered_internal_links == [
+        DiscoveredLink(
+            url="https://example-city.de/smart-city",
+            anchor_text="Smart City programme",
+        ),
+        DiscoveredLink(
+            url="https://example-city.de/kontakt",
+            anchor_text="Kontakt",
+        ),
+    ]
 
 
 def test_download_page_passes_configured_timeout_and_user_agent(

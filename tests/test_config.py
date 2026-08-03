@@ -47,6 +47,8 @@ def test_supplied_mapping_overrides_defaults() -> None:
             "BROWSER_WAIT_AFTER_LOAD_SECONDS": "0.5",
             "BROWSER_WAIT_FOR_SELECTOR": " main.ready ",
             "BROWSER_ACCEPT_COOKIES": "yes",
+            "BUSINESS_LINK_PRIORITY_ENABLED": "false",
+            "GENERAL_LINKS_ENABLED": "no",
         }
     )
 
@@ -66,6 +68,8 @@ def test_supplied_mapping_overrides_defaults() -> None:
     assert config.browser_wait_after_load_seconds == 0.5
     assert config.browser_wait_for_selector == "main.ready"
     assert config.browser_accept_cookies is True
+    assert config.business_link_priority_enabled is False
+    assert config.general_links_enabled is False
 
 
 def test_blank_values_use_defaults() -> None:
@@ -89,6 +93,8 @@ def test_blank_values_use_defaults() -> None:
             "BROWSER_WAIT_AFTER_LOAD_SECONDS": " ",
             "BROWSER_WAIT_FOR_SELECTOR": " ",
             "BROWSER_ACCEPT_COOKIES": " ",
+            "BUSINESS_LINK_PRIORITY_ENABLED": " ",
+            "GENERAL_LINKS_ENABLED": " ",
         }
     )
 
@@ -195,6 +201,27 @@ def test_invalid_boolean_raises_value_error() -> None:
 
     with pytest.raises(ValueError, match="BROWSER_HEADLESS"):
         parse_bool("maybe", True, "BROWSER_HEADLESS")
+
+
+def test_priority_boolean_configuration() -> None:
+    """Link-priority booleans should load from environment-style values."""
+
+    config = load_config(
+        {
+            "BUSINESS_LINK_PRIORITY_ENABLED": "0",
+            "GENERAL_LINKS_ENABLED": "false",
+        }
+    )
+
+    assert config.business_link_priority_enabled is False
+    assert config.general_links_enabled is False
+
+
+def test_invalid_priority_boolean_raises_value_error() -> None:
+    """Priority boolean values should fail clearly when invalid."""
+
+    with pytest.raises(ValueError, match="GENERAL_LINKS_ENABLED"):
+        load_config({"GENERAL_LINKS_ENABLED": "sometimes"})
 
 
 @pytest.mark.parametrize("value", ["static", "dynamic", "auto", " AUTO "])

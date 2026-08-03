@@ -324,6 +324,8 @@ def test_cli_overrides_configuration_correctly(
     assert crawl_kwargs["request_delay_seconds"] == 0
     assert crawl_kwargs["max_retries"] == 5
     assert crawl_kwargs["retry_backoff_seconds"] == 0.25
+    assert crawl_kwargs["business_link_priority_enabled"] is True
+    assert crawl_kwargs["general_links_enabled"] is True
     assert calls["build_dashboard_summary"][1] == 2
 
 
@@ -373,6 +375,75 @@ def test_analyse_default_scrape_mode_remains_static(
     _crawl_args, crawl_kwargs = calls["crawl_website"]
 
     assert crawl_kwargs["scrape_mode"] == "static"
+
+
+def test_analyse_priority_flags_are_forwarded(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Analyse priority flags should update config and crawler kwargs."""
+
+    calls = install_fake_analysis_pipeline(monkeypatch)
+
+    assert main(
+        analyse_args(
+            "--disable-business-priority",
+            "--business-links-only",
+            "--no-export",
+        )
+    ) == 0
+
+    _crawl_args, crawl_kwargs = calls["crawl_website"]
+    output = capsys.readouterr().out
+
+    assert crawl_kwargs["business_link_priority_enabled"] is False
+    assert crawl_kwargs["general_links_enabled"] is False
+    assert "Crawler priority mode: legacy contact-first" in output
+
+
+def test_analyse_business_links_only_prints_effective_mode(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Business-only mode should be visible in CLI output."""
+
+    calls = install_fake_analysis_pipeline(monkeypatch)
+
+    assert main(
+        analyse_args(
+            "--business-links-only",
+            "--no-export",
+        )
+    ) == 0
+
+    _crawl_args, crawl_kwargs = calls["crawl_website"]
+    output = capsys.readouterr().out
+
+    assert crawl_kwargs["business_link_priority_enabled"] is True
+    assert crawl_kwargs["general_links_enabled"] is False
+    assert (
+        "Crawler priority mode: business-aware, business and contact "
+        "links only"
+        in output
+    )
+
+
+def test_batch_priority_flags_are_available() -> None:
+    """Batch should expose the same crawler priority overrides."""
+
+    parser = cli_module.build_parser()
+    args = parser.parse_args(
+        [
+            "batch",
+            "--input",
+            "data/input/organisations.example.csv",
+            "--disable-business-priority",
+            "--business-links-only",
+        ]
+    )
+
+    assert args.disable_business_priority is True
+    assert args.business_links_only is True
 
 
 def test_dynamic_runtime_failure_returns_exit_code_one(

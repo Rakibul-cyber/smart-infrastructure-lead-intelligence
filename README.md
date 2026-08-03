@@ -237,7 +237,8 @@ python -m src.lead_intelligence analyse \
 
 Useful options include `--max-pages`, `--timeout`, `--request-delay`,
 `--max-retries`, `--retry-backoff`, `--top-limit`, `--headed`,
-`--wait-for-selector`, `--browser-wait`, and `--accept-cookies`.
+`--wait-for-selector`, `--browser-wait`, `--accept-cookies`,
+`--disable-business-priority`, and `--business-links-only`.
 
 ## Batch CSV Analysis
 
@@ -283,6 +284,27 @@ post-load wait, a CSS selector wait, and conservative cookie-button handling.
 The project does not use Playwright to bypass blocked access, CAPTCHA,
 authentication, robots restrictions, anti-bot controls, or access-control
 systems. It does not use stealth plugins, proxies, or user-agent rotation.
+
+## Business-Aware Page Prioritisation
+
+The crawler uses transparent link scoring to spend limited page budgets on
+domain-relevant pages first. Links related to smart infrastructure, street
+lighting, energy, climate, modernisation, procurement, sustainability, and
+municipal utilities receive the highest crawl priority.
+
+Contact pages remain useful but are secondary, so they are queued after
+business-relevant pages and before general internal pages. Privacy, login,
+cookie, search, sitemap, accessibility, and common social-media links are
+skipped.
+
+This prioritisation is deterministic and configurable. Use
+`--disable-business-priority` to restore the legacy contact-first queue order,
+or `--business-links-only` to queue only business-relevant and contact links.
+The same behaviour can be configured with `BUSINESS_LINK_PRIORITY_ENABLED` and
+`GENERAL_LINKS_ENABLED`.
+
+Business-aware ordering improves use of small `--max-pages` budgets, but it
+does not guarantee that every relevant page on a website will be found.
 
 ## Excel Report Structure
 
@@ -340,6 +362,8 @@ Core configuration:
 | `LOG_LEVEL` | `INFO` | Logging level. |
 | `LOG_FILE` | blank | Optional UTF-8 log file path. |
 | `SCRAPE_MODE` | `static` | `static`, `dynamic`, or `auto`. |
+| `BUSINESS_LINK_PRIORITY_ENABLED` | `true` | Prioritise business-relevant internal links before contact and general links. |
+| `GENERAL_LINKS_ENABLED` | `true` | Queue general internal links after business and contact links. Set to `false` to keep only business and contact links. |
 | `BROWSER_HEADLESS` | `true` | Run Chromium headlessly in browser mode. |
 | `BROWSER_TIMEOUT_SECONDS` | `30` | Browser navigation and action timeout in seconds. |
 | `BROWSER_WAIT_AFTER_LOAD_SECONDS` | `0` | Optional post-load browser wait before parsing. |
