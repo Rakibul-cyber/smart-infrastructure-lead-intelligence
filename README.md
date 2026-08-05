@@ -306,6 +306,25 @@ The same behaviour can be configured with `BUSINESS_LINK_PRIORITY_ENABLED` and
 Business-aware ordering improves use of small `--max-pages` budgets, but it
 does not guarantee that every relevant page on a website will be found.
 
+## Resource Filtering And Contact Quality
+
+The crawler analyses HTML-like pages and avoids spending crawl budget on
+non-HTML resources. Document links such as PDFs and office files are recorded
+for review, but they are not parsed with Beautiful Soup or rendered with
+Playwright in this checkpoint.
+
+Assets and archives, including CSS, JavaScript, images, fonts, media files, and
+zip files, are ignored as crawl candidates. Response `Content-Type` headers are
+also validated so an HTML-looking URL that returns a PDF, stylesheet, script, or
+image is not sent to the HTML parser or browser fallback.
+
+Phone-number extraction is conservative and German-focused. German domestic
+numbers are normalised to `+49` followed by the national number without its
+leading zero, repeated site-wide numbers are deduplicated, and date, price,
+postcode, percentage, repeated-digit, and identifier-like values are rejected.
+Human review remains necessary before using contact data for outreach or
+business decisions.
+
 ## Excel Report Structure
 
 Excel reports are generated with `openpyxl` and contain four sheets:
@@ -416,7 +435,7 @@ Docker notes:
 
 ## Testing
 
-The current local test result is `325 passed, 1 skipped`, verified with:
+The current local test result is `402 passed, 1 skipped`, verified with:
 
 ```bash
 .venv/bin/python -m pytest -q

@@ -38,6 +38,7 @@ def make_crawler_result() -> CrawledWebsite:
         ],
         phone_numbers=["030 1234 5678"],
         contact_links=["https://example-city.de/kontakt"],
+        document_links=["https://example-city.de/report.pdf"],
         page_results=[],
     )
 
@@ -102,6 +103,7 @@ def make_record(
     score: int = 55,
     emails: list[str] | None = None,
     phone_numbers: list[str] | None = None,
+    document_links: list[str] | None = None,
 ) -> LeadRecord:
     """Build a fictional LeadRecord."""
 
@@ -117,8 +119,11 @@ def make_record(
         else ["office@example-city.de"],
         phone_numbers=phone_numbers
         if phone_numbers is not None
-        else ["030 1234 5678"],
+        else ["+493012345678"],
         contact_links=["https://example-city.de/kontakt"],
+        document_links=document_links
+        if document_links is not None
+        else [],
         street_lighting=True,
         smart_city=priority != "Low",
         energy_efficiency=False,
@@ -180,6 +185,9 @@ def test_build_lead_record_maps_fields_correctly() -> None:
     assert record.emails == [
         "office@example-city.de",
         "energy@example-city.de",
+    ]
+    assert record.document_links == [
+        "https://example-city.de/report.pdf"
     ]
     assert record.street_lighting is True
     assert record.energy_efficiency is False
@@ -301,8 +309,8 @@ def test_all_leads_has_correct_headers_and_data(
         for cell in worksheet[1]
     ] == LEAD_HEADERS
     assert worksheet["A2"].value == "Example City"
-    assert worksheet["S2"].value == 55
-    assert worksheet["T2"].value == "Medium"
+    assert worksheet["T2"].value == 55
+    assert worksheet["U2"].value == "Medium"
 
     workbook.close()
 
@@ -394,8 +402,8 @@ def test_booleans_export_as_yes_no(tmp_path: Path) -> None:
     workbook = load_export(output_path)
     worksheet = workbook["All Leads"]
 
-    assert worksheet["J2"].value == "Yes"
-    assert worksheet["L2"].value == "No"
+    assert worksheet["K2"].value == "Yes"
+    assert worksheet["M2"].value == "No"
 
     workbook.close()
 
@@ -564,6 +572,43 @@ def test_run_summary_totals_email_and_phone_counts(
     workbook.close()
 
 
+def test_run_summary_totals_document_links(
+    tmp_path: Path,
+) -> None:
+    """Run Summary should total exported document links."""
+
+    records = [
+        make_record(
+            website="https://one.example",
+            document_links=[
+                "https://one.example/tender.pdf",
+                "https://one.example/spec.xlsx",
+            ],
+        ),
+        make_record(
+            website="https://two.example",
+            document_links=[],
+        ),
+    ]
+    output_path = tmp_path / "leads.xlsx"
+
+    export_leads_to_excel(
+        records=records,
+        evidence_by_website={
+            "https://one.example": [],
+            "https://two.example": [],
+        },
+        output_path=output_path,
+    )
+
+    workbook = load_export(output_path)
+    worksheet = workbook["Run Summary"]
+
+    assert worksheet["B7"].value == 2
+
+    workbook.close()
+
+
 def test_average_score_is_correct(tmp_path: Path) -> None:
     """Run Summary should include average lead score."""
 
@@ -590,7 +635,7 @@ def test_average_score_is_correct(tmp_path: Path) -> None:
     workbook = load_export(output_path)
     worksheet = workbook["Run Summary"]
 
-    assert worksheet["B8"].value == 75
+    assert worksheet["B9"].value == 75
 
     workbook.close()
 
@@ -654,9 +699,9 @@ def test_priority_cell_styling_differs_between_priority_levels(
     workbook = load_export(output_path)
     worksheet = workbook["All Leads"]
     fills = {
-        worksheet["T2"].fill.fgColor.rgb,
-        worksheet["T3"].fill.fgColor.rgb,
-        worksheet["T4"].fill.fgColor.rgb,
+        worksheet["U2"].fill.fgColor.rgb,
+        worksheet["U3"].fill.fgColor.rgb,
+        worksheet["U4"].fill.fgColor.rgb,
     }
 
     assert len(fills) == 3
@@ -701,8 +746,8 @@ def test_auto_filter_is_configured(tmp_path: Path) -> None:
 
     workbook = load_export(output_path)
 
-    assert workbook["All Leads"].auto_filter.ref == "A1:W2"
-    assert workbook["High Priority"].auto_filter.ref == "A1:W1"
+    assert workbook["All Leads"].auto_filter.ref == "A1:X2"
+    assert workbook["High Priority"].auto_filter.ref == "A1:X1"
     assert workbook["Evidence"].auto_filter.ref == "A1:F1"
 
     workbook.close()

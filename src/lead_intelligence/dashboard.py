@@ -46,6 +46,7 @@ class DashboardSummary:
     total_phone_numbers: int
     unique_phone_numbers: int
     total_contact_links: int
+    total_document_links: int
     total_evidence_items: int
     average_lead_score: float
     highest_lead_score: int
@@ -90,6 +91,10 @@ def build_dashboard_summary(
         unique_phone_numbers=len(_unique_phone_numbers(records)),
         total_contact_links=sum(
             len(record.contact_links)
+            for record in records
+        ),
+        total_document_links=sum(
+            len(record.document_links)
             for record in records
         ),
         total_evidence_items=sum(
@@ -154,6 +159,10 @@ def format_dashboard(
         _metric_line(
             "Contact links discovered",
             summary.total_contact_links,
+        ),
+        _metric_line(
+            "Document links found",
+            summary.total_document_links,
         ),
         "",
         "RESEARCH COVERAGE",

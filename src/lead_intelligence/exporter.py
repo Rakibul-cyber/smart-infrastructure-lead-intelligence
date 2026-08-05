@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from statistics import mean
@@ -29,6 +29,7 @@ LEAD_HEADERS = [
     "Emails",
     "Phone Numbers",
     "Contact Links",
+    "Document Links",
     "Street Lighting",
     "Smart City",
     "Energy Efficiency",
@@ -102,6 +103,7 @@ class LeadRecord:
     score_summary: str
     score_breakdown: list[str]
     last_checked: str
+    document_links: list[str] = field(default_factory=list)
 
 
 def build_lead_record(
@@ -131,6 +133,7 @@ def build_lead_record(
         emails=crawler_result.emails,
         phone_numbers=crawler_result.phone_numbers,
         contact_links=crawler_result.contact_links,
+        document_links=crawler_result.document_links,
         street_lighting=signals.street_lighting,
         smart_city=signals.smart_city,
         energy_efficiency=signals.energy_efficiency,
@@ -306,6 +309,10 @@ def _write_run_summary_sheet(
             "Total Phone Numbers Found",
             sum(len(record.phone_numbers) for record in records),
         ),
+        (
+            "Total Document Links Found",
+            sum(len(record.document_links) for record in records),
+        ),
         ("Total Evidence Items", total_evidence_items),
         (
             "Average Lead Score",
@@ -329,7 +336,7 @@ def _write_run_summary_sheet(
 
     worksheet.column_dimensions["A"].width = 28
     worksheet.column_dimensions["B"].width = 24
-    worksheet["B8"].number_format = "0.00"
+    worksheet["B9"].number_format = "0.00"
 
 
 def _lead_record_to_row(record: LeadRecord) -> list[Any]:
@@ -345,6 +352,7 @@ def _lead_record_to_row(record: LeadRecord) -> list[Any]:
         _join_list_values(record.emails),
         _join_list_values(record.phone_numbers),
         _join_list_values(record.contact_links),
+        _join_list_values(record.document_links),
         _format_bool(record.street_lighting),
         _format_bool(record.smart_city),
         _format_bool(record.energy_efficiency),

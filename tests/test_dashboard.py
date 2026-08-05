@@ -19,6 +19,7 @@ def make_record(
     emails: list[str] | None = None,
     phone_numbers: list[str] | None = None,
     contact_links: list[str] | None = None,
+    document_links: list[str] | None = None,
     evidence_count: int = 1,
     street_lighting: bool = False,
     smart_city: bool = False,
@@ -44,6 +45,9 @@ def make_record(
         else [],
         contact_links=contact_links
         if contact_links is not None
+        else [],
+        document_links=document_links
+        if document_links is not None
         else [],
         street_lighting=street_lighting,
         smart_city=smart_city,
@@ -166,6 +170,24 @@ def test_contact_link_count_is_correct() -> None:
     )
 
     assert summary.total_contact_links == 3
+
+
+def test_document_link_count_is_correct() -> None:
+    """All document links should be counted across records."""
+
+    summary = build_dashboard_summary(
+        [
+            make_record(document_links=["https://one.example/report.pdf"]),
+            make_record(
+                document_links=[
+                    "https://two.example/spec.docx",
+                    "https://two.example/tender.xlsx",
+                ]
+            ),
+        ]
+    )
+
+    assert summary.total_document_links == 3
 
 
 def test_evidence_total_is_correct() -> None:

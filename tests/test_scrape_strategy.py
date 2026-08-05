@@ -9,7 +9,10 @@ from src.lead_intelligence.scrape_strategy import (
     scrape_with_strategy,
     static_page_appears_insufficient,
 )
-from src.lead_intelligence.static_scraper import ScrapedPage
+from src.lead_intelligence.static_scraper import (
+    ScrapedPage,
+    UnsupportedContentError,
+)
 
 
 def make_page(
@@ -207,6 +210,55 @@ def test_static_403_is_not_converted_into_browser_fallback() -> None:
             static_scrape_function=fake_static,
             dynamic_scrape_function=lambda *args, **kwargs: make_dynamic_result(),
         )
+
+
+def test_unsupported_content_does_not_launch_dynamic_scraper() -> None:
+    """Unsupported content should not trigger browser fallback in auto mode."""
+
+    called_dynamic = False
+
+    def fake_static(*args, **kwargs):
+        raise UnsupportedContentError(
+            "https://example.test/download",
+            content_type="application/pdf",
+            category="document",
+            document_link=True,
+        )
+
+    def fake_dynamic(*args, **kwargs):
+        nonlocal called_dynamic
+        called_dynamic = True
+        return make_dynamic_result()
+
+    with pytest.raises(UnsupportedContentError):
+        scrape_with_strategy(
+            "https://example.test/download",
+            mode="auto",
+            static_scrape_function=fake_static,
+            dynamic_scrape_function=fake_dynamic,
+        )
+
+    assert called_dynamic is False
+
+
+def test_pdf_url_does_not_launch_dynamic_scraper() -> None:
+    """Known document URLs should not use Playwright even in dynamic mode."""
+
+    called_dynamic = False
+
+    def fake_dynamic(*args, **kwargs):
+        nonlocal called_dynamic
+        called_dynamic = True
+        return make_dynamic_result()
+
+    with pytest.raises(UnsupportedContentError):
+        scrape_with_strategy(
+            "https://example.test/report.pdf",
+            mode="dynamic",
+            dynamic_scrape_function=fake_dynamic,
+        )
+
+    assert called_dynamic is False
 
 
 def test_dynamic_options_forwarded() -> None:

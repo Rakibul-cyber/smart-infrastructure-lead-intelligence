@@ -55,6 +55,9 @@ def make_crawler_result(
         emails=["secret@example-city.de"] if successful_pages else [],
         phone_numbers=["030 1234 5678"] if successful_pages else [],
         contact_links=["https://example-city.de/contact"],
+        document_links=["https://example-city.de/report.pdf"]
+        if successful_pages
+        else [],
         page_results=page_results,
     )
 
@@ -106,6 +109,7 @@ def make_record() -> LeadRecord:
         emails=["secret@example-city.de"],
         phone_numbers=["030 1234 5678"],
         contact_links=["https://example-city.de/contact"],
+        document_links=["https://example-city.de/report.pdf"],
         street_lighting=True,
         smart_city=False,
         energy_efficiency=False,
@@ -601,7 +605,8 @@ def test_no_raw_emails_or_phone_values_in_standard_output(
     assert "secret@example-city.de" not in output
     assert "030 1234 5678" not in output
     assert "Emails found: 1" in output
-    assert "Phone numbers found: 1" in output
+    assert "Valid phone numbers found: 1" in output
+    assert "Document links found: 1" in output
 
 
 def test_configuration_failure_returns_exit_code_two(

@@ -4,7 +4,7 @@ import logging
 import time
 from collections import deque
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import ParseResult, urlparse, urlunparse, urldefrag
 
 import requests
@@ -23,9 +23,11 @@ from .link_prioritiser import (
     LinkPriority,
     prioritise_links,
 )
+from .resource_filter import classify_resource_url
 from .scrape_strategy import ScrapeDecision, ScrapeMode, scrape_with_strategy
 from .static_scraper import (
     ScrapedPage,
+    UnsupportedContentError,
     normalise_domain,
     scrape_page,
 )
@@ -64,6 +66,7 @@ class CrawledWebsite:
     phone_numbers: list[str]
     contact_links: list[str]
     page_results: list[ScrapedPage]
+    document_links: list[str] = field(default_factory=list)
 
 
 def normalise_crawl_url(url: str) -> str:
@@ -158,6 +161,7 @@ def crawl_website(
     emails: set[str] = set()
     phone_numbers: set[str] = set()
     contact_links: set[str] = set()
+    document_links: set[str] = set()
     attempted_pages = 0
 
     while queue and len(visited_urls) < max_pages:
@@ -191,6 +195,19 @@ def crawl_website(
                 sleep_function=sleep_function,
             )
             page_result = scrape_decision.page
+
+        except UnsupportedContentError as error:
+            failed_url_set.add(current_url)
+
+            if error.document_link:
+                document_links.add(normalise_crawl_url(error.url))
+
+            logger.info(
+                "Unsupported resource skipped during crawl: %s error=%s",
+                current_url,
+                error,
+            )
+            continue
 
         except (requests.RequestException, DynamicScraperError) as error:
             failed_url_set.add(current_url)
@@ -228,12 +245,13 @@ def crawl_website(
         )
         logger.debug(
             "Aggregated counts: visited=%d failed=%d emails=%d phones=%d "
-            "contact_links=%d",
+            "contact_links=%d document_links=%d",
             len(visited_urls),
             len(failed_pages),
             len(emails),
             len(phone_numbers),
             len(contact_links),
+            len(document_links),
         )
 
         prioritized_links = build_prioritized_crawl_candidates(
@@ -254,6 +272,26 @@ def crawl_website(
 
             if normalise_domain(normalized_link) != start_domain:
                 logger.debug("External URL skipped: %s", normalized_link)
+                continue
+
+            resource_classification = classify_resource_url(normalized_link)
+
+            if resource_classification.document_link:
+                document_links.add(normalized_link)
+                logger.debug(
+                    "Document URL recorded but not queued: %s reason=%s",
+                    normalized_link,
+                    resource_classification.excluded_reason,
+                )
+                continue
+
+            if not resource_classification.crawlable_html:
+                logger.debug(
+                    "Non-HTML URL skipped: %s category=%s reason=%s",
+                    normalized_link,
+                    resource_classification.category,
+                    resource_classification.excluded_reason,
+                )
                 continue
 
             if (
@@ -282,6 +320,7 @@ def crawl_website(
         phone_numbers=sorted(phone_numbers),
         contact_links=sorted(contact_links),
         page_results=page_results,
+        document_links=sorted(document_links),
     )
 
     logger.info(

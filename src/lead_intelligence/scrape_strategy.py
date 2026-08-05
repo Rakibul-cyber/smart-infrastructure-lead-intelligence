@@ -17,7 +17,12 @@ from .dynamic_scraper import (
     DynamicScrapeResult,
     scrape_dynamic_page,
 )
-from .static_scraper import ScrapedPage, scrape_page
+from .resource_filter import classify_resource_url
+from .static_scraper import (
+    ScrapedPage,
+    UnsupportedContentError,
+    scrape_page,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -88,6 +93,16 @@ def scrape_with_strategy(
     if mode not in {"static", "dynamic", "auto"}:
         raise ValueError("mode must be one of: static, dynamic, auto")
 
+    resource_classification = classify_resource_url(url)
+
+    if not resource_classification.crawlable_html:
+        raise UnsupportedContentError(
+            url,
+            content_type=None,
+            category=resource_classification.category,
+            document_link=resource_classification.document_link,
+        )
+
     if mode == "static":
         page = static_scrape_function(
             url,
@@ -119,14 +134,19 @@ def scrape_with_strategy(
             page=dynamic_result.scraped_page,
         )
 
-    static_page = static_scrape_function(
-        url,
-        timeout=timeout,
-        user_agent=user_agent,
-        max_retries=max_retries,
-        retry_backoff_seconds=retry_backoff_seconds,
-        sleep_function=sleep_function,
-    )
+    try:
+        static_page = static_scrape_function(
+            url,
+            timeout=timeout,
+            user_agent=user_agent,
+            max_retries=max_retries,
+            retry_backoff_seconds=retry_backoff_seconds,
+            sleep_function=sleep_function,
+        )
+
+    except UnsupportedContentError:
+        logger.info("Unsupported content skipped without browser fallback: %s", url)
+        raise
 
     if not static_page_appears_insufficient(static_page):
         return ScrapeDecision(

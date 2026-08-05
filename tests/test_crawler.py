@@ -12,7 +12,11 @@ from src.lead_intelligence.crawler import (
 )
 from src.lead_intelligence.dynamic_scraper import DynamicPageOptions
 from src.lead_intelligence.scrape_strategy import ScrapeDecision
-from src.lead_intelligence.static_scraper import ScrapedPage, parse_page
+from src.lead_intelligence.static_scraper import (
+    ScrapedPage,
+    UnsupportedContentError,
+    parse_page,
+)
 
 
 FIXTURE_DIR = Path("tests/fixtures")
@@ -30,6 +34,7 @@ PRIORITY_ENERGY_URL = "https://priority.example/energie/energieeffizienz"
 PRIORITY_CONTACT_URL = "https://priority.example/kontakt"
 PRIORITY_IMPRESSUM_URL = "https://priority.example/impressum"
 PRIORITY_NEWS_URL = "https://priority.example/aktuelles"
+PRIORITY_PDF_URL = "https://priority.example/downloads/beleuchtung.pdf"
 
 
 def no_sleep(delay: float) -> None:
@@ -256,8 +261,8 @@ def test_phone_numbers_from_multiple_pages_are_combined_and_deduplicated(
     )
 
     assert result.phone_numbers == [
-        "030 1111 2222",
-        "030 3333 4444",
+        "+493011112222",
+        "+493033334444",
     ]
 
 
@@ -803,6 +808,98 @@ def test_privacy_and_login_pages_are_skipped(
     assert "https://priority.example/login" not in result.visited_urls
 
 
+def test_pdf_links_are_collected_as_document_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Internal document links should be recorded but not visited."""
+
+    install_priority_fake_scraper(monkeypatch)
+
+    result = crawl_website(
+        PRIORITY_BASE_URL,
+        max_pages=8,
+        sleep_function=no_sleep,
+    )
+
+    assert result.document_links == [PRIORITY_PDF_URL]
+    assert PRIORITY_PDF_URL not in result.visited_urls
+
+
+def test_html_looking_pdf_response_is_recorded_as_document_link() -> None:
+    """A document Content-Type on an HTML-looking URL should be recorded."""
+
+    def fake_strategy(url: str, **kwargs):
+        if url == PRIORITY_BASE_URL:
+            return ScrapeDecision(
+                requested_mode=kwargs["mode"],
+                used_mode="static",
+                fallback_reason=None,
+                page=parse_page(
+                    url=url,
+                    html="<html><body><a href='/download'>Download</a></body></html>",
+                ),
+            )
+
+        raise UnsupportedContentError(
+            url,
+            content_type="application/pdf",
+            category="document",
+            document_link=True,
+        )
+
+    result = crawl_website(
+        PRIORITY_BASE_URL,
+        max_pages=2,
+        sleep_function=no_sleep,
+        scrape_strategy_function=fake_strategy,
+    )
+
+    assert result.visited_urls == [PRIORITY_BASE_URL]
+    assert result.document_links == ["https://priority.example/download"]
+    assert result.failed_pages == []
+
+
+def test_assets_are_skipped_without_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CSS, JavaScript, and images should not be queued as failures."""
+
+    install_priority_fake_scraper(monkeypatch)
+
+    result = crawl_website(
+        PRIORITY_BASE_URL,
+        max_pages=8,
+        sleep_function=no_sleep,
+    )
+
+    assert "https://priority.example/assets/site.css" not in result.visited_urls
+    assert "https://priority.example/assets/app.js" not in result.visited_urls
+    assert "https://priority.example/assets/logo.png" not in result.visited_urls
+    assert result.failed_pages == []
+
+
+def test_skipped_assets_do_not_trigger_request_delay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skipped resource links should not create extra crawl attempts."""
+
+    install_priority_fake_scraper(monkeypatch)
+    sleeps: list[float] = []
+
+    result = crawl_website(
+        PRIORITY_BASE_URL,
+        max_pages=2,
+        request_delay_seconds=1,
+        sleep_function=sleeps.append,
+    )
+
+    assert result.visited_urls == [
+        PRIORITY_BASE_URL,
+        PRIORITY_STREET_LIGHTING_URL,
+    ]
+    assert sleeps == [1]
+
+
 def test_duplicate_urls_are_not_queued(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -857,6 +954,45 @@ def test_business_links_only_omits_general_links(
     assert PRIORITY_NEWS_URL not in result.visited_urls
     assert PRIORITY_CONTACT_URL in result.visited_urls
     assert PRIORITY_STREET_LIGHTING_URL in result.visited_urls
+
+
+def test_duplicate_site_wide_phone_numbers_collapse() -> None:
+    """Normalised phone numbers repeated across pages should appear once."""
+
+    def fake_strategy(url: str, **kwargs):
+        if url == PRIORITY_BASE_URL:
+            html = (
+                "<html><body>"
+                "<p>Header phone 030 1234 5678</p>"
+                "<a href='/kontakt'>Kontakt</a>"
+                "</body></html>"
+            )
+        else:
+            html = (
+                "<html><body>"
+                "<a href='tel:+49 (0) 30 12345678'>Call</a>"
+                "<p>Footer phone 0049 30 12345678</p>"
+                "</body></html>"
+            )
+
+        return ScrapeDecision(
+            requested_mode=kwargs["mode"],
+            used_mode="static",
+            fallback_reason=None,
+            page=parse_page(
+                url=url,
+                html=html,
+            ),
+        )
+
+    result = crawl_website(
+        PRIORITY_BASE_URL,
+        max_pages=2,
+        sleep_function=no_sleep,
+        scrape_strategy_function=fake_strategy,
+    )
+
+    assert result.phone_numbers == ["+493012345678"]
 
 
 @pytest.mark.parametrize("scrape_mode", ["static", "dynamic", "auto"])

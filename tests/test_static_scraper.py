@@ -9,6 +9,8 @@ from bs4 import BeautifulSoup
 import src.lead_intelligence.static_scraper as static_scraper_module
 from src.lead_intelligence.static_scraper import (
     DiscoveredLink,
+    DownloadedPage,
+    UnsupportedContentError,
     calculate_retry_delay,
     clean_link,
     download_page,
@@ -151,8 +153,10 @@ def test_extract_phone_numbers_from_text_and_tel() -> None:
         visible_text,
     )
 
-    assert "+493012345679" in phone_numbers
-    assert "030 1234 5678" in phone_numbers
+    assert phone_numbers == [
+        "+493012345678",
+        "+493012345679",
+    ]
 
 
 def test_extract_links_separates_internal_and_external() -> None:
@@ -316,6 +320,27 @@ def test_download_page_passes_configured_timeout_and_user_agent(
     }
 
 
+def make_downloaded_page(
+    *,
+    requested_url: str = "https://example-city.de",
+    text: str = (
+        "<html><head><title>Configured</title></head>"
+        "<body><h1>Configured Page</h1></body></html>"
+    ),
+    content_type: str | None = "text/html; charset=utf-8",
+    status_code: int = 200,
+) -> DownloadedPage:
+    """Build deterministic response metadata for scrape_page tests."""
+
+    return DownloadedPage(
+        requested_url=requested_url,
+        final_url=requested_url,
+        text=text,
+        content_type=content_type,
+        status_code=status_code,
+    )
+
+
 def test_scrape_page_forwards_timeout_and_user_agent(
     monkeypatch,
 ) -> None:
@@ -323,7 +348,7 @@ def test_scrape_page_forwards_timeout_and_user_agent(
 
     captured_call: dict[str, object] = {}
 
-    def fake_download_page(
+    def fake_download_page_response(
         url: str,
         *,
         timeout: float,
@@ -338,15 +363,14 @@ def test_scrape_page_forwards_timeout_and_user_agent(
         captured_call["max_retries"] = max_retries
         captured_call["retry_backoff_seconds"] = retry_backoff_seconds
         captured_call["sleep_function"] = sleep_function
-        return (
-            "<html><head><title>Configured</title></head>"
-            "<body><h1>Configured Page</h1></body></html>"
+        return make_downloaded_page(
+            requested_url=url,
         )
 
     monkeypatch.setattr(
         static_scraper_module,
-        "download_page",
-        fake_download_page,
+        "download_page_response",
+        fake_download_page_response,
     )
 
     result = scrape_page(
@@ -371,7 +395,7 @@ def test_scrape_page_legacy_call_without_config_still_works(
 ) -> None:
     """scrape_page(url) should remain backward compatible."""
 
-    def fake_download_page(
+    def fake_download_page_response(
         url: str,
         *,
         timeout: float,
@@ -379,21 +403,116 @@ def test_scrape_page_legacy_call_without_config_still_works(
         max_retries: int,
         retry_backoff_seconds: float,
         sleep_function,
-    ) -> str:
-        return (
-            "<html><head><title>Legacy</title></head>"
-            "<body><h1>Legacy Page</h1></body></html>"
+    ) -> DownloadedPage:
+        return make_downloaded_page(
+            requested_url=url,
+            text=(
+                "<html><head><title>Legacy</title></head>"
+                "<body><h1>Legacy Page</h1></body></html>"
+            ),
         )
 
     monkeypatch.setattr(
         static_scraper_module,
-        "download_page",
-        fake_download_page,
+        "download_page_response",
+        fake_download_page_response,
     )
 
     result = scrape_page("https://example-city.de")
 
     assert result.title == "Legacy"
+
+
+def test_scrape_page_rejects_pdf_url_before_parsing() -> None:
+    """Known document URLs should not be downloaded or parsed as HTML."""
+
+    with pytest.raises(UnsupportedContentError) as error_info:
+        scrape_page("https://example-city.de/report.pdf")
+
+    assert error_info.value.category == "document"
+    assert error_info.value.document_link is True
+    assert "https://example-city.de/report.pdf" in str(error_info.value)
+
+
+def test_scrape_page_rejects_pdf_content_type_before_parsing(
+    monkeypatch,
+) -> None:
+    """PDF response content should be rejected before Beautiful Soup parsing."""
+
+    monkeypatch.setattr(
+        static_scraper_module,
+        "download_page_response",
+        lambda *args, **kwargs: make_downloaded_page(
+            content_type="application/pdf",
+            text="%PDF fictional bytes",
+        ),
+    )
+
+    with pytest.raises(UnsupportedContentError) as error_info:
+        scrape_page("https://example-city.de/download")
+
+    assert error_info.value.category == "document"
+    assert error_info.value.document_link is True
+    assert "application/pdf" in str(error_info.value)
+
+
+def test_scrape_page_rejects_css_content_type_before_parsing(
+    monkeypatch,
+) -> None:
+    """CSS response content should be rejected before parsing."""
+
+    monkeypatch.setattr(
+        static_scraper_module,
+        "download_page_response",
+        lambda *args, **kwargs: make_downloaded_page(
+            content_type="text/css",
+            text="body { color: red; }",
+        ),
+    )
+
+    with pytest.raises(UnsupportedContentError) as error_info:
+        scrape_page("https://example-city.de/style")
+
+    assert error_info.value.category == "asset"
+    assert error_info.value.document_link is False
+
+
+def test_scrape_page_valid_html_content_type_continues_working(
+    monkeypatch,
+) -> None:
+    """Valid HTML content should still be parsed."""
+
+    monkeypatch.setattr(
+        static_scraper_module,
+        "download_page_response",
+        lambda *args, **kwargs: make_downloaded_page(
+            content_type="text/html; charset=utf-8",
+            text="<html><body><h1>HTML works</h1></body></html>",
+        ),
+    )
+
+    result = scrape_page("https://example-city.de")
+
+    assert result.main_heading == "HTML works"
+
+
+def test_false_numeric_values_are_excluded_from_phone_numbers() -> None:
+    """Dates, prices, postcodes, IDs, and percentages should not be phones."""
+
+    html = (Path("tests/fixtures/resource_quality_page.html")).read_text(
+        encoding="utf-8"
+    )
+    result = parse_page(
+        url=BASE_URL,
+        html=html,
+    )
+
+    assert result.phone_numbers == ["+493012345678"]
+    assert "https://example-city.de/downloads/beleuchtung.pdf" in (
+        result.internal_links
+    )
+    assert "https://example-city.de/assets/site.css" in result.internal_links
+    assert "https://example-city.de/smart-city" in result.internal_links
 
 
 def install_fake_get(
@@ -718,7 +837,7 @@ def test_scrape_page_forwards_retry_settings_and_sleep_function(
     def fake_sleep(delay: float) -> None:
         return None
 
-    def fake_download_page(
+    def fake_download_page_response(
         url: str,
         *,
         timeout: float,
@@ -733,15 +852,18 @@ def test_scrape_page_forwards_retry_settings_and_sleep_function(
         captured_call["max_retries"] = max_retries
         captured_call["retry_backoff_seconds"] = retry_backoff_seconds
         captured_call["sleep_function"] = sleep_function
-        return (
-            "<html><head><title>Retry</title></head>"
-            "<body><h1>Retry Page</h1></body></html>"
+        return make_downloaded_page(
+            requested_url=url,
+            text=(
+                "<html><head><title>Retry</title></head>"
+                "<body><h1>Retry Page</h1></body></html>"
+            ),
         )
 
     monkeypatch.setattr(
         static_scraper_module,
-        "download_page",
-        fake_download_page,
+        "download_page_response",
+        fake_download_page_response,
     )
 
     result = scrape_page(

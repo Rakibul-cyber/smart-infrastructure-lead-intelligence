@@ -450,7 +450,7 @@ def test_dynamic_scrape_renders_local_javascript_fixture() -> None:
             "Fictional Dynamic Infrastructure Office"
         )
         assert result.scraped_page.emails == ["dynamic@example-city.example"]
-        assert result.scraped_page.phone_numbers == ["030 1234 5678"]
+        assert result.scraped_page.phone_numbers == ["+493012345678"]
 
     finally:
         server.shutdown()

@@ -10,11 +10,16 @@ from urllib.parse import urljoin, urlparse, urldefrag
 import requests
 from bs4 import BeautifulSoup
 
+from .contact_cleaner import validate_phone_candidate
 from .config import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_RETRY_BACKOFF_SECONDS,
     DEFAULT_USER_AGENT,
+)
+from .resource_filter import (
+    classify_content_type,
+    classify_resource_url,
 )
 
 
@@ -25,7 +30,8 @@ EMAIL_PATTERN = re.compile(
 )
 
 PHONE_PATTERN = re.compile(
-    r"(?:\+49|0)[\d\s()/.-]{7,}"
+    r"(?<![\w])(?:\+\d{1,3}|00\d{1,3}|0\d{1,5})"
+    r"(?:[\s()./-]*\d){5,14}(?![\w])"
 )
 
 CONTACT_KEYWORDS = (
@@ -56,6 +62,40 @@ class DiscoveredLink:
 
     url: str
     anchor_text: str
+
+
+@dataclass(frozen=True)
+class DownloadedPage:
+    """HTTP response details needed before HTML parsing."""
+
+    requested_url: str
+    final_url: str
+    text: str
+    content_type: str | None
+    status_code: int
+
+
+class UnsupportedContentError(requests.RequestException):
+    """Raised when a URL is not an HTML page suitable for parsing."""
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        content_type: str | None,
+        category: str,
+        document_link: bool = False,
+    ) -> None:
+        self.url = url
+        self.content_type = content_type
+        self.category = category
+        self.document_link = document_link
+        content_type_text = content_type or "unknown"
+        super().__init__(
+            "Unsupported content for "
+            f"{url}: content_type={content_type_text} "
+            f"resource_category={category}"
+        )
 
 
 @dataclass
@@ -152,6 +192,29 @@ def download_page(
             If the request fails or returns an unsuccessful HTTP status.
     """
 
+    return download_page_response(
+        url,
+        timeout=timeout,
+        user_agent=user_agent,
+        max_retries=max_retries,
+        retry_backoff_seconds=retry_backoff_seconds,
+        sleep_function=sleep_function,
+    ).text
+
+
+def download_page_response(
+    url: str,
+    *,
+    timeout: float = DEFAULT_REQUEST_TIMEOUT,
+    user_agent: str = DEFAULT_USER_AGENT,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS,
+    sleep_function: Callable[[float], None] = time.sleep,
+) -> DownloadedPage:
+    """
+    Download a page and retain response metadata for content filtering.
+    """
+
     if max_retries < 0:
         raise ValueError("max_retries must be zero or greater")
 
@@ -181,7 +244,15 @@ def download_page(
             response.raise_for_status()
             logger.info("Page downloaded successfully: %s", url)
 
-            return response.text
+            return DownloadedPage(
+                requested_url=url,
+                final_url=getattr(response, "url", url) or url,
+                text=response.text,
+                content_type=getattr(response, "headers", {}).get(
+                    "Content-Type"
+                ),
+                status_code=getattr(response, "status_code", 200),
+            )
 
         except requests.RequestException as error:
             final_attempt = attempt == total_attempts
@@ -349,10 +420,7 @@ def extract_phone_numbers(
     and telephone links.
     """
 
-    phone_numbers = {
-        phone.strip(" \t\r\n.,;:")
-        for phone in PHONE_PATTERN.findall(visible_text)
-    }
+    phone_numbers_by_normalised: dict[str, str] = {}
 
     for anchor in soup.find_all("a", href=True):
         href = anchor.get("href")
@@ -366,9 +434,25 @@ def extract_phone_numbers(
         phone_value = href.split(":", 1)[1].strip()
 
         if phone_value:
-            phone_numbers.add(phone_value)
+            cleaned_phone = validate_phone_candidate(phone_value)
 
-    return sorted(phone_numbers)
+            if cleaned_phone.valid:
+                phone_numbers_by_normalised[
+                    cleaned_phone.normalised
+                ] = cleaned_phone.normalised
+
+    for phone in PHONE_PATTERN.findall(visible_text):
+        cleaned_phone = validate_phone_candidate(
+            phone.strip(" \t\r\n.,;:")
+        )
+
+        if cleaned_phone.valid:
+            phone_numbers_by_normalised.setdefault(
+                cleaned_phone.normalised,
+                cleaned_phone.normalised,
+            )
+
+    return sorted(phone_numbers_by_normalised)
 
 
 def extract_links(
@@ -549,7 +633,17 @@ def scrape_page(
     Download and parse one webpage.
     """
 
-    html = download_page(
+    resource_classification = classify_resource_url(url)
+
+    if not resource_classification.crawlable_html:
+        raise UnsupportedContentError(
+            url,
+            content_type=None,
+            category=resource_classification.category,
+            document_link=resource_classification.document_link,
+        )
+
+    downloaded_page = download_page_response(
         url,
         timeout=timeout,
         user_agent=user_agent,
@@ -557,8 +651,19 @@ def scrape_page(
         retry_backoff_seconds=retry_backoff_seconds,
         sleep_function=sleep_function,
     )
+    content_type_category = classify_content_type(
+        downloaded_page.content_type
+    )
+
+    if content_type_category in {"document", "asset"}:
+        raise UnsupportedContentError(
+            downloaded_page.final_url,
+            content_type=downloaded_page.content_type,
+            category=content_type_category,
+            document_link=content_type_category == "document",
+        )
 
     return parse_page(
-        url=url,
-        html=html,
+        url=downloaded_page.final_url,
+        html=downloaded_page.text,
     )
